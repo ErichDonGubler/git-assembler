@@ -1,0 +1,228 @@
+#!/usr/bin/env python3
+import subprocess as sp
+import collections
+import argparse
+import os, sys
+
+
+def repo_root():
+    try:
+        line = sp.check_output(['git', 'rev-parse', '--show-toplevel'])
+    except sp.CalledProcessError as e:
+        return None
+    return line.decode(sys.getfilesystemencoding()).rstrip()
+
+
+def assembly_path(root):
+    path = os.path.join(root, '.gitassembly')
+    if os.path.exists(path):
+        return path
+    path = os.path.join(root, '.git', 'assembly')
+    if os.path.exists(path):
+        return path
+    return None
+
+
+def error(msg):
+    name = os.path.basename(sys.argv[0])
+    print('{}: {}'.format(name, msg), file=sys.stderr)
+
+def parse_error(path, line, msg):
+    error('{}:{}: {}'.format(path, line, msg))
+
+def os_error(e):
+    error(str(e))
+
+
+def parse_assembly(path):
+    try:
+        fd = open(path)
+    except OSError as e:
+        os_error(e)
+        return None
+
+    nodes = {}
+    for n, line in enumerate(fd, 1):
+        # strip comments
+        line = line[0:line.find('#')].strip()
+        if len(line) == 0:
+            continue
+
+        # basic tokenization
+        tokens = line.split()
+        if len(tokens) < 3:
+            parse_error(path, n, 'invalid assembly line')
+            return None
+        cmd, branch, args = tokens[0], tokens[1], tokens[2:]
+        if cmd not in {'branch', 'merge', 'rebase'}:
+            parse_error(path, n, 'unknown command: {}'.format(cmd))
+            return None
+
+        node = nodes.get(branch)
+        if node is None:
+            node = empty_node(branch)
+            nodes[branch] = node
+
+        if cmd == 'branch' or cmd == 'rebase':
+            # define the branch base
+            if node['base']:
+                parse_error(path, n, 'branch base/type cannot be redefined')
+                return None
+            if len(args) != 1:
+                parse_error(path, n, 'invalid base for branch {}'.format(branch))
+                return None
+            node['base'] = args[0]
+            node['rebase'] = (cmd == 'rebase')
+        elif cmd == 'merge':
+            # add dependencies
+            node['merge'] = list(set(node['merge']).union(args))
+
+    return nodes
+
+
+def empty_node(name):
+    return {'name': name,
+            'base': None,
+            'rebase': False,
+            'merge': [],
+            'deps': []}
+
+
+def assembly_graph(nodes):
+    # convert all nodes
+    for branch in list(nodes):
+        node = nodes[branch]
+        deps = []
+
+        # direct merge dependencies
+        for branch_name in node.get('merge'):
+            branch_node = nodes.get(branch_name)
+            if branch_node is None:
+                branch_node = empty_node(branch_name)
+                nodes[branch_name] = branch_node
+            deps.append(branch_node)
+        node['merge'] = list(sorted(deps, key=lambda x: x['name']))
+
+        # convert base
+        if node['base'] is not None:
+            base_name = node['base']
+            base_node = nodes.get(base_name)
+            if base_node is None:
+                base_node = empty_node(base_name)
+                nodes[base_name] = base_node
+            node['base'] = base_node
+            deps.append(base_node)
+
+        # all dependencies
+        node['deps'] = deps
+
+    # split into disjoint groups
+    groups = []
+    left = set(nodes)
+    while len(left):
+        start = left.pop()
+        if len(nodes[start]['deps']) == 0:
+            continue
+
+        # check for cycles
+        seen = set()
+        stack = collections.deque([start])
+        while len(stack):
+            branch = stack.popleft()
+            if branch in seen:
+                error('dependency cycle detected for branch {}'.format(branch))
+                return None
+            seen.add(branch)
+            for dep in nodes[branch]['deps']:
+                if len(dep['deps']) != 0:
+                    stack.append(dep['name'])
+
+        groups.append(seen)
+        left -= seen
+
+    # coalesce groups
+    left = list(groups)
+    groups = []
+    while len(left):
+        buf = left.pop()
+        group = None
+        for tmp in groups:
+            if not buf.isdisjoint(tmp):
+                group = tmp
+                break
+        if group is not None:
+            group |= buf
+        else:
+            groups.append(buf)
+
+    # find roots
+    roots = []
+    for group in groups:
+        connected = set()
+        for branch in group:
+            for dep in nodes[branch]['deps']:
+                connected.add(dep['name'])
+        roots.extend(group - connected)
+
+    return [nodes[name] for name in sorted(roots)]
+
+
+def dump_graph(graph, root=None, depth=0):
+    roots = collections.deque(graph)
+    if root is None:
+        root = roots
+
+    while len(roots):
+        node = roots.popleft()
+        name = node['name']
+        prefix = '  ' * depth
+
+        # calculate an extended suffix
+        suffix = ''
+        base_node = node['base']
+        while base_node is not None:
+            suffix += ' <- ' if node['rebase'] else ' .. '
+            if base_node['base'] is not None and len(base_node['merge']) != 0:
+                # split the branch into a fake root
+                suffix += '[' + base_node['name'] + ']'
+                root.append(base_node)
+                break
+            suffix += base_node['name']
+            base_node = base_node['base']
+
+        print('{}{}{}'.format(prefix, name, suffix))
+
+        merge = node['merge']
+        if len(merge):
+            dump_graph(merge, root, depth + 1)
+
+
+def main(argv):
+    ap = argparse.ArgumentParser()
+    ap.add_argument('-v', '--verbose', default=0, action='count')
+    ap.add_argument('-a', '--assembly')
+    args = ap.parse_args(argv[1:])
+
+    root = repo_root()
+    if root is None:
+        return 1
+    if args.assembly:
+        path = args.assembly
+    else:
+        path = assembly_path(root)
+        if path is None:
+            error('no assembly instructions')
+            return 1
+        path = os.path.relpath(path)
+    nodes = parse_assembly(path)
+    if nodes is None:
+        return 1
+    graph = assembly_graph(nodes)
+    if graph is None:
+        return 1
+    if args.verbose > 0:
+        dump_graph(graph)
+
+
+if __name__ == '__main__':
+    exit(main(sys.argv))
