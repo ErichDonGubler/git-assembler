@@ -75,7 +75,11 @@ def parse_assembly(path):
             node['rebase'] = (cmd == 'rebase')
         elif cmd == 'merge':
             # add dependencies
-            node['merge'] = list(set(node['merge']).union(args))
+            for arg in args:
+                if arg in node['merge']:
+                    parse_error(path, n, 'duplicate merge of {} into {}'.format(arg, branch))
+                    return None
+            node['merge'].extend(args)
 
     return nodes
 
@@ -101,7 +105,7 @@ def assembly_graph(nodes, targets=None):
                 branch_node = empty_node(branch_name)
                 nodes[branch_name] = branch_node
             deps.append(branch_node)
-        node['merge'] = list(sorted(deps, key=lambda x: x['name']))
+        node['merge'] = list(deps)
 
         # convert base
         if node['base'] is not None:
