@@ -88,7 +88,7 @@ def empty_node(name):
             'deps': []}
 
 
-def assembly_graph(nodes):
+def assembly_graph(nodes, targets=None):
     # convert all nodes
     for branch in list(nodes):
         node = nodes[branch]
@@ -116,9 +116,19 @@ def assembly_graph(nodes):
         # all dependencies
         node['deps'] = deps
 
+    # filter targets
+    if targets is None:
+        left = set(nodes)
+    else:
+        left = set(targets)
+        branches = set(nodes)
+        for branch in targets:
+            if branch not in branches:
+                error('unknown branch {}'.format(branch))
+                return None
+
     # split into disjoint groups
     groups = []
-    left = set(nodes)
     while len(left):
         start = left.pop()
         if len(nodes[start]['deps']) == 0:
@@ -190,7 +200,7 @@ def dump_graph(graph, root=None, depth=0):
             suffix += base_node['name']
             base_node = base_node['base']
 
-        print('{}{}{}'.format(prefix, name, suffix))
+        print(prefix + name + suffix)
 
         merge = node['merge']
         if len(merge):
@@ -200,12 +210,15 @@ def dump_graph(graph, root=None, depth=0):
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('-v', '--verbose', default=0, action='count')
+    ap.add_argument('-n', '--dry-run', action='store_true')
     ap.add_argument('-a', '--assembly')
+    ap.add_argument('target', nargs='*')
     args = ap.parse_args(argv[1:])
 
     root = repo_root()
     if root is None:
         return 1
+
     if args.assembly:
         path = args.assembly
     else:
@@ -214,13 +227,18 @@ def main(argv):
             error('no assembly instructions')
             return 1
         path = os.path.relpath(path)
+
     nodes = parse_assembly(path)
     if nodes is None:
         return 1
-    graph = assembly_graph(nodes)
+    targets = set(args.target) if len(args.target) else None
+    graph = assembly_graph(nodes, targets)
     if graph is None:
         return 1
-    if args.verbose > 0:
+    if len(graph) == 0:
+        error('nothing to do')
+        return 1
+    if args.verbose > 0 or args.dry_run:
         dump_graph(graph)
 
 
