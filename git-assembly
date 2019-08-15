@@ -182,12 +182,12 @@ def assembly_graph(nodes, targets=None):
 
 
 def dump_graph(graph, root=None, depth=0):
-    roots = collections.deque(graph)
+    roots = list(reversed(graph))
     if root is None:
         root = roots
 
     while len(roots):
-        node = roots.popleft()
+        node = roots.pop()
         name = node['name']
         prefix = '  ' * depth
 
