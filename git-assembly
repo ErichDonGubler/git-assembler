@@ -187,6 +187,10 @@ def assembly_graph(nodes, targets=None):
     return [nodes[name] for name in sorted(roots)]
 
 
+class ANSI:
+    reset = "\033[0;0m"
+    bold  = "\033[;1m"
+
 def dump_graph(graph, root=None, depth=0):
     roots = list(reversed(graph))
     if root is None:
@@ -201,15 +205,20 @@ def dump_graph(graph, root=None, depth=0):
         suffix = ''
         base_node = node['base']
         while base_node is not None:
+            base_name = base_node['name']
+            if base_node['dirty'] and sys.stdout.isatty():
+                base_name = ANSI.bold + base_name + ANSI.reset
             suffix += ' <- ' if node['rebase'] else ' .. '
             if base_node['base'] is not None and len(base_node['merge']) != 0:
                 # split the branch into a fake root
-                suffix += '[' + base_node['name'] + ']'
+                suffix += '[' + base_name + ']'
                 root.append(base_node)
                 break
-            suffix += base_node['name']
+            suffix += base_name
             base_node = base_node['base']
 
+        if node['dirty'] and sys.stdout.isatty():
+            name = ANSI.bold + name + ANSI.reset
         print(prefix + name + suffix)
 
         merge = node['merge']
