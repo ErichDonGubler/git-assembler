@@ -84,6 +84,9 @@ def parse_assembly(path):
     return nodes
 
 
+def leaf_node(node):
+    return len(node['deps']) == 0
+
 def empty_node(name):
     return {'name': name,
             'base': None,
@@ -98,15 +101,6 @@ def assembly_graph(nodes, targets=None):
         node = nodes[branch]
         deps = []
 
-        # direct merge dependencies
-        for branch_name in node.get('merge'):
-            branch_node = nodes.get(branch_name)
-            if branch_node is None:
-                branch_node = empty_node(branch_name)
-                nodes[branch_name] = branch_node
-            deps.append(branch_node)
-        node['merge'] = list(deps)
-
         # convert base
         if node['base'] is not None:
             base_name = node['base']
@@ -117,7 +111,18 @@ def assembly_graph(nodes, targets=None):
             node['base'] = base_node
             deps.append(base_node)
 
-        # all dependencies
+        # direct merge dependencies
+        merge = []
+        for branch_name in node.get('merge'):
+            branch_node = nodes.get(branch_name)
+            if branch_node is None:
+                branch_node = empty_node(branch_name)
+                nodes[branch_name] = branch_node
+            merge.append(branch_node)
+        node['merge'] = merge
+        deps.extend(merge)
+
+        # all dependencies (in order)
         node['deps'] = deps
 
     # filter targets
@@ -135,7 +140,7 @@ def assembly_graph(nodes, targets=None):
     groups = []
     while len(left):
         start = left.pop()
-        if len(nodes[start]['deps']) == 0:
+        if leaf_node(nodes[start]):
             continue
 
         # check for cycles
@@ -148,7 +153,7 @@ def assembly_graph(nodes, targets=None):
                 return None
             seen.add(branch)
             for dep in nodes[branch]['deps']:
-                if len(dep['deps']) != 0:
+                if not leaf_node(dep):
                     stack.append(dep['name'])
 
         groups.append(seen)
@@ -219,6 +224,7 @@ def main(argv):
     ap.add_argument('target', nargs='*')
     args = ap.parse_args(argv[1:])
 
+    # assembly path
     root = repo_root()
     if root is None:
         return 1
@@ -232,6 +238,7 @@ def main(argv):
             return 1
         path = os.path.relpath(path)
 
+    # build the list of nodes and resulting graph
     nodes = parse_assembly(path)
     if nodes is None:
         return 1
