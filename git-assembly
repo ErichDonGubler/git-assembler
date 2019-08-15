@@ -91,6 +91,7 @@ def empty_node(name):
     return {'name': name,
             'base': None,
             'rebase': False,
+            'dirty': False,
             'merge': [],
             'deps': []}
 
@@ -216,6 +217,65 @@ def dump_graph(graph, root=None, depth=0):
             dump_graph(merge, root, depth + 1)
 
 
+def topo_sort(graph, seen=None):
+    if seen is None:
+        seen = set()
+    nodes = []
+    if type(graph) is not list:
+        graph = [graph]
+    for node in graph:
+        name = node['name']
+        if name in seen:
+            continue
+        seen.add(name)
+        for dep in node['deps']:
+            nodes.extend(topo_sort(dep, seen))
+        nodes.append(node)
+    return nodes
+
+
+def mark_tree_dirty(node, graph):
+    if type(graph) is not list:
+        graph = [graph]
+    dirty = False
+    for root in graph:
+        if root is node or mark_tree_dirty(node, root['merge']) or \
+           (root['rebase'] and mark_tree_dirty(node, root['base'])):
+            root['dirty'] = dirty = True
+    return dirty
+
+
+def needs_merge(dst, branch):
+    return False
+
+
+def needs_rebase(dst, base):
+    return False
+
+
+def branch_exists(name):
+    return False
+
+
+def update_state(ordered_nodes, graph):
+    for node in ordered_nodes:
+        # exclude leaf or processed nodes
+        if leaf_node(node) or node['dirty']:
+            continue
+
+        if node['base'] is not None:
+            if not branch_exists(node['name']):
+                mark_tree_dirty(node['base'], graph)
+            else:
+                check_fn = needs_rebase if node['rebase'] else needs_merge
+                if check_fn(node['name'], node['base']['name']):
+                    mark_tree_dirty(node['base'], graph)
+
+        for dep in node['merge']:
+            if needs_merge(node['name'], dep['name']):
+                mark_tree_dirty(dep, graph)
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
     ap.add_argument('-v', '--verbose', default=0, action='count')
@@ -249,6 +309,10 @@ def main(argv):
     if len(graph) == 0:
         error('nothing to do')
         return 1
+
+    ordered_nodes = topo_sort(graph)
+    update_state(ordered_nodes, graph)
+
     if args.verbose > 0 or args.dry_run:
         dump_graph(graph)
 
