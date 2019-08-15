@@ -92,6 +92,7 @@ def empty_node(name):
             'base': None,
             'rebase': False,
             'dirty': False,
+            'used': False,
             'merge': [],
             'deps': []}
 
@@ -188,8 +189,20 @@ def assembly_graph(nodes, targets=None):
 
 
 class ANSI:
-    reset = "\033[0;0m"
     bold  = "\033[;1m"
+    green = "\033[0;32m"
+    reset = "\033[0;0m"
+
+def color_node(node):
+    name = node['name']
+    if not sys.stdout.isatty():
+        return name
+    elif node['dirty']:
+        return ANSI.bold + name + ANSI.reset
+    elif node['used']:
+        return ANSI.green + name + ANSI.reset
+    else:
+        return name
 
 def dump_graph(graph, root=None, depth=0):
     roots = list(reversed(graph))
@@ -198,16 +211,13 @@ def dump_graph(graph, root=None, depth=0):
 
     while len(roots):
         node = roots.pop()
-        name = node['name']
         prefix = '  ' * depth
 
         # calculate an extended suffix
         suffix = ''
         base_node = node['base']
         while base_node is not None:
-            base_name = base_node['name']
-            if base_node['dirty'] and sys.stdout.isatty():
-                base_name = ANSI.bold + base_name + ANSI.reset
+            base_name = color_node(base_node)
             suffix += ' <- ' if node['rebase'] else ' .. '
             if base_node['base'] is not None and len(base_node['merge']) != 0:
                 # split the branch into a fake root
@@ -217,9 +227,7 @@ def dump_graph(graph, root=None, depth=0):
             suffix += base_name
             base_node = base_node['base']
 
-        if node['dirty'] and sys.stdout.isatty():
-            name = ANSI.bold + name + ANSI.reset
-        print(prefix + name + suffix)
+        print(prefix + color_node(node) + suffix)
 
         merge = node['merge']
         if len(merge):
@@ -263,7 +271,9 @@ def needs_rebase(dst, base):
 
 
 def branch_exists(name):
-    return False
+    proc = sp.run(['git', 'rev-parse', '--verify', name + '^0'],
+                  stdout=sp.DEVNULL, stderr=sp.DEVNULL)
+    return proc.returncode == 0
 
 
 def update_state(ordered_nodes, graph):
@@ -272,17 +282,21 @@ def update_state(ordered_nodes, graph):
         if leaf_node(node) or node['dirty']:
             continue
 
+        # base or node itself
         if node['base'] is not None:
             if not branch_exists(node['name']):
-                mark_tree_dirty(node['base'], graph)
+                node['base']['used'] = True
+                mark_tree_dirty(node, graph)
             else:
                 check_fn = needs_rebase if node['rebase'] else needs_merge
                 if check_fn(node['name'], node['base']['name']):
                     mark_tree_dirty(node['base'], graph)
 
+        # merge dependencies
         for dep in node['merge']:
             if needs_merge(node['name'], dep['name']):
-                mark_tree_dirty(dep, graph)
+                dep['used'] = True
+                mark_tree_dirty(node, graph)
 
 
 def main(argv):
