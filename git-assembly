@@ -14,10 +14,10 @@ def repo_root():
 
 
 def assembly_path(root):
-    path = os.path.join(root, '.gitassembly')
+    path = os.path.join(root, '.git', 'assembly')
     if os.path.exists(path):
         return path
-    path = os.path.join(root, '.git', 'assembly')
+    path = os.path.join(root, '.gitassembly')
     if os.path.exists(path):
         return path
     return None
