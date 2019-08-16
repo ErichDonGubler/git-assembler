@@ -202,7 +202,7 @@ def color_node(node):
     name = node['name']
     if not sys.stdout.isatty():
         return name
-    elif node['state']['missing'] is True:
+    elif node['state']['missing']:
         return ANSI.red + name + ANSI.reset
     elif node['state']['dirty']:
         return ANSI.bold + name + ANSI.reset
@@ -286,8 +286,7 @@ def needs_rebase(dst, base):
 
 
 def branch_exists(name):
-    proc = sp.run(['git', 'show-ref', '--quiet', name],
-                  stdout=sp.DEVNULL, stderr=sp.DEVNULL)
+    proc = sp.run(['git', 'show-ref', '--quiet', name], stdout=sp.DEVNULL)
     return proc.returncode == 0
 
 
@@ -305,15 +304,21 @@ def update_state(ordered_nodes, graph):
         if leaf_node(node):
             continue
 
-        # base or node itself
         if node['base'] is not None:
-            check_fn = needs_rebase if node['rebase'] else needs_merge
-            ret = check_fn(node['name'], node['base']['name'])
-            if ret is not False:
-                if ret is None:
-                    check_missing2(node, node['base'])
-                node['base']['state']['used'] = True
-                mark_tree_dirty(node, graph)
+            if not node['rebase']:
+                # base should be created when missing
+                check_missing2(node, node['base'])
+                if node['state']['missing']:
+                    node['base']['state']['used'] = True
+                    mark_tree_dirty(node, graph)
+            else:
+                # always rebase
+                ret = needs_rebase(node['name'], node['base']['name'])
+                if ret is not False:
+                    if ret is None:
+                        check_missing2(node, node['base'])
+                    node['base']['state']['used'] = True
+                    mark_tree_dirty(node, graph)
 
         # merge dependencies
         for dep in node['merge']:
@@ -328,12 +333,14 @@ def update_state(ordered_nodes, graph):
 def check_state(nodes, create):
     state = True
     for node in nodes:
-        if node['state']['missing'] and node['state']['used']:
+        if node['state']['missing']:
             if node['base'] is None:
+                state = False
                 for ref in nodes:
                     if node in ref['deps']:
                         break
-                state = False
+                else:
+                    ref = None
                 if ref is None:
                     error('branch {} is required but does not exist'.format(color_node(node)))
                 else:
