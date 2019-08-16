@@ -91,10 +91,11 @@ def empty_node(name):
     return {'name': name,
             'base': None,
             'rebase': False,
-            'dirty': False,
-            'used': False,
             'merge': [],
-            'deps': []}
+            'deps': [],
+            'state': {'dirty': False,
+                      'used': False,
+                      'missing': None}}
 
 
 def assembly_graph(nodes, targets=None):
@@ -191,15 +192,18 @@ def assembly_graph(nodes, targets=None):
 class ANSI:
     bold  = "\033[;1m"
     green = "\033[0;32m"
+    red   = "\033[1;31m"
     reset = "\033[0;0m"
 
 def color_node(node):
     name = node['name']
     if not sys.stdout.isatty():
         return name
-    elif node['dirty']:
+    elif node['state']['missing'] is True:
+        return ANSI.red + name + ANSI.reset
+    elif node['state']['dirty']:
         return ANSI.bold + name + ANSI.reset
-    elif node['used']:
+    elif node['state']['used']:
         return ANSI.green + name + ANSI.reset
     else:
         return name
@@ -258,44 +262,63 @@ def mark_tree_dirty(node, graph):
     for root in graph:
         if root is node or mark_tree_dirty(node, root['merge']) or \
            (root['rebase'] and mark_tree_dirty(node, root['base'])):
-            root['dirty'] = dirty = True
+            root['state']['dirty'] = dirty = True
     return dirty
 
 
 def needs_merge(dst, branch):
+    if not branch_exists(branch):
+        return None
+    if not branch_exists(dst):
+        return None
     return False
 
 
 def needs_rebase(dst, base):
+    if not branch_exists(base):
+        return None
+    if not branch_exists(dst):
+        return None
     return False
 
 
 def branch_exists(name):
-    proc = sp.run(['git', 'rev-parse', '--verify', name + '^0'],
+    proc = sp.run(['git', 'show-ref', '--quiet', name],
                   stdout=sp.DEVNULL, stderr=sp.DEVNULL)
     return proc.returncode == 0
 
 
+def check_missing(node):
+    if node['state']['missing'] is None:
+        node['state']['missing'] = not branch_exists(node['name'])
+
+def check_missing2(n1, n2):
+    check_missing(n1)
+    check_missing(n2)
+
+
 def update_state(ordered_nodes, graph):
     for node in ordered_nodes:
-        # exclude leaf or processed nodes
-        if leaf_node(node) or node['dirty']:
+        if leaf_node(node):
             continue
 
         # base or node itself
         if node['base'] is not None:
-            if not branch_exists(node['name']):
-                node['base']['used'] = True
+            check_fn = needs_rebase if node['rebase'] else needs_merge
+            ret = check_fn(node['name'], node['base']['name'])
+            if ret is not False:
+                if ret is None:
+                    check_missing2(node, node['base'])
+                node['base']['state']['used'] = True
                 mark_tree_dirty(node, graph)
-            else:
-                check_fn = needs_rebase if node['rebase'] else needs_merge
-                if check_fn(node['name'], node['base']['name']):
-                    mark_tree_dirty(node['base'], graph)
 
         # merge dependencies
         for dep in node['merge']:
-            if needs_merge(node['name'], dep['name']):
-                dep['used'] = True
+            ret = needs_merge(node['name'], dep['name'])
+            if ret is not False:
+                if ret is None:
+                    check_missing2(node, dep)
+                dep['state']['used'] = True
                 mark_tree_dirty(node, graph)
 
 
