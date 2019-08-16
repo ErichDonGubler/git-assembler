@@ -322,11 +322,32 @@ def update_state(ordered_nodes, graph):
                 mark_tree_dirty(node, graph)
 
 
+def check_state(nodes, create):
+    state = True
+    for node in nodes:
+        if node['state']['missing'] and node['state']['used']:
+            if node['base'] is None:
+                for ref in nodes:
+                    if node in ref['deps']:
+                        break
+                state = False
+                if ref is None:
+                    error('branch {} is required but does not exist'.format(color_node(node)))
+                else:
+                    error('branch {} is required by {} but does not exist'.format(color_node(node), color_node(ref)))
+            elif not create:
+                state = False
+                error('branch {} needs creation from {}'.format(color_node(node), color_node(node['base'])))
+    return state
+
+
 def main(argv):
     ap = argparse.ArgumentParser()
-    ap.add_argument('-v', '--verbose', default=0, action='count')
-    ap.add_argument('-n', '--dry-run', action='store_true')
     ap.add_argument('-a', '--assembly')
+    ap.add_argument('-c', '--create', action='store_true')
+    ap.add_argument('-n', '--dry-run', action='store_true')
+    ap.add_argument('-s', '--state', action='store_true')
+    ap.add_argument('-v', '--verbose', default=0, action='count')
     ap.add_argument('target', nargs='*')
     args = ap.parse_args(argv[1:])
 
@@ -356,11 +377,14 @@ def main(argv):
         error('nothing to do')
         return 1
 
+    # update and check current state
     ordered_nodes = topo_sort(graph)
     update_state(ordered_nodes, graph)
-
-    if args.verbose > 0 or args.dry_run:
+    if args.state:
         dump_graph(graph)
+        return 0
+    if not check_state(ordered_nodes, args.create):
+        return 1
 
 
 if __name__ == '__main__':
