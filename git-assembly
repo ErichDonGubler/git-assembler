@@ -3,6 +3,8 @@ import subprocess as sp
 import collections
 import argparse
 import os, sys
+import shutil
+import json
 
 import logging
 from logging import error, warning, info, debug
@@ -270,23 +272,44 @@ def mark_tree_dirty(node, graph):
 
 
 def needs_merge(dst, branch):
-    if not branch_exists(branch):
+    proc = sp.run(['git', 'merge-base', '--is-ancestor', branch, dst],
+                  stderr=sp.DEVNULL)
+    if proc.returncode not in [0, 1]:
         return None
-    if not branch_exists(dst):
+    return proc.returncode != 0
+
+
+def fork_point(dst, base):
+    proc = sp.run(['git', 'merge-base', '--fork-point', base, dst],
+                  stdout=sp.PIPE, stderr=sp.DEVNULL)
+    fork_point = proc.stdout.decode('ascii').rstrip()
+    if proc.returncode != 0 or len(fork_point) == 0:
         return None
-    return False
+    return fork_point
+
+
+def branch_tip(name):
+    proc = sp.run(['git', 'rev-parse', '--verify', name],
+                  stdout=sp.PIPE, stderr=sp.DEVNULL)
+    tip = proc.stdout.decode('ascii').rstrip()
+    if proc.returncode != 0 or len(tip) == 0:
+        return None
+    return tip
 
 
 def needs_rebase(dst, base):
-    if not branch_exists(base):
-        return None
-    if not branch_exists(dst):
-        return None
-    return False
+    tip = branch_tip(base)
+    if tip is None:
+        return None, None, None
+    fp = fork_point(dst, base)
+    if fp is None:
+        return None, None, None
+    return tip != fp, tip, fp
 
 
 def branch_exists(name):
-    proc = sp.run(['git', 'show-ref', '--quiet', name], stdout=sp.DEVNULL)
+    proc = sp.run(['git', 'rev-parse', '--verify', name],
+                  stdout=sp.DEVNULL, stderr=sp.DEVNULL)
     return proc.returncode == 0
 
 
@@ -336,7 +359,7 @@ def update_state(ordered_nodes, graph):
                 mark_tree_dirty(node, graph)
 
 
-def check_state(nodes, create):
+def check_missing(nodes, create):
     state = True
     for node in nodes:
         if node['state']['missing']:
@@ -355,6 +378,129 @@ def check_state(nodes, create):
                 state = False
                 error('branch {} needs creation from {}'.format(color_node(node), color_node(node['base'])))
     return state
+
+
+def check_dirty(nodes):
+    for node in nodes:
+        if node['state']['dirty']:
+            return True
+    return False
+
+
+def current_branch():
+    proc = sp.run(['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
+                  stdout=sp.PIPE, stderr=sp.DEVNULL)
+    name = proc.stdout.decode('ascii').rstrip()
+    if proc.returncode != 0 or len(name) == 0:
+        return None
+    return name
+
+
+def read_state(root):
+    state_path = os.path.join(root, '.git', 'as-cache', 'state')
+    if os.path.exists(state_path):
+        return json.load(open(state_path))
+    else:
+        return {}
+
+
+def save_state(root, state):
+    cache_dir = os.path.join(root, '.git', 'as-cache')
+    dir_exists = os.path.exists(cache_dir)
+    if not state:
+        if dir_exists:
+            shutil.rmtree(cache_dir)
+        return
+    if not dir_exists:
+        os.mkdir(cache_dir)
+    state_path = os.path.join(cache_dir, 'state')
+    json.dump(state, open(state_path, "w"))
+
+
+def switch_to_branch(name):
+    proc = sp.run(['git', 'checkout', '-q', '--no-guess', name],
+                  stdout=sp.DEVNULL, stderr=sp.DEVNULL)
+    return proc.returncode == 0
+
+
+def update_node(node, state, dry_run):
+    if not node['state']['dirty']:
+        return True
+
+    # logging helper
+    def dry_info(msg):
+        if dry_run:
+            warning(msg)
+        else:
+            info(msg)
+
+    # switch branch if needed
+    if node['name'] == state['last_branch']:
+        exists = True
+    elif dry_run:
+        exists = branch_exists(node['name'])
+    else:
+        debug('switching to branch {}'.format(node['name']))
+        exists = switch_to_branch(node['name'])
+
+    if not exists:
+        # branch is missing, see if it can be bootstrapped
+        if node['base'] is None:
+            return False
+        else:
+            warning('creating branch {} from {}'.format(color_node(node), color_node(node['base'])))
+            if not dry_run:
+                proc = sp.run(['git', 'checkout', '-q', '--no-guess', '-b', node['name'], node['base']['name']])
+                if proc.returncode != 0:
+                    return False
+            state['last_branch'] = node['name']
+    else:
+        state['last_branch'] = node['name']
+
+        # rebase when required
+        if node['rebase'] and node['base'] is not None:
+            dirty, tip, fp = needs_rebase(node['name'], node['base']['name'])
+            if dirty is None:
+                return False
+            elif dirty:
+                dry_info('rebasing {} onto {}'.format(color_node(node), color_node(node['base'])))
+                if not dry_run:
+                    proc = sp.run(['git', 'rebase', '-q', '--rebase-merges',
+                                   '--onto', node['base']['name'], fp, node['name']])
+                    if proc.returncode != 0:
+                        return False
+
+
+    # merge dependencies
+    for dep in node['merge']:
+        if not exists or dep['state']['dirty']:
+            # branch is new or dependency has been updated earlier on,
+            # there's no need to peform another check: we need to merge
+            pass
+        elif not needs_merge(node['name'], dep['name']):
+            continue
+
+        dry_info('merging {} into {}'.format(color_node(dep), color_node(node)))
+        if not dry_run:
+            proc = sp.run(['git', 'merge', '-q', '--no-edit', dep['name']])
+            if proc.returncode != 0:
+                return False
+
+    return True
+
+
+def check_pending(root):
+    git_root = os.path.join(root, '.git')
+    if os.path.exists(os.path.join(git_root, 'MERGE_HEAD')):
+        error('merge in progress, refusing to continue')
+        return True
+    elif os.path.exists(os.path.join(git_root, 'rebase-apply')):
+        error('rebase in progress, refusing to continue')
+        return True
+    elif os.path.exists(os.path.join(git_root, 'BISECT_LOG')):
+        error('bisect in progress, refusing to continue')
+        return True
+    return False
 
 
 def main(argv):
@@ -392,7 +538,7 @@ def main(argv):
             error('no assembly instructions')
             return 1
         path = os.path.relpath(path)
-        info('reading instructions from {}'.format(path))
+        debug('reading instructions from {}'.format(path))
 
     # build the list of nodes and resulting graph
     nodes = parse_assembly(path)
@@ -412,8 +558,42 @@ def main(argv):
     if args.state:
         dump_graph(graph)
         return 0
-    if not check_state(ordered_nodes, args.create):
+    if not check_missing(ordered_nodes, args.create):
         return 1
+    state = read_state(root)
+    state['last_branch'] = current_branch()
+    if not check_dirty(ordered_nodes):
+        if state.get('start_branch', state['last_branch']) == state['last_branch']:
+            info('already up to date')
+        else:
+            # always warn when restoring the initial branch by itself
+            warning('restoring initial branch {}'.format(state['start_branch']))
+            if not args.dry_run:
+                switch_to_branch(state['start_branch'])
+        if not args.dry_run:
+            save_state(root, None)
+        return 0
+
+    # check whether we're in the middle of other stateful activities
+    if check_pending(root):
+        return 1
+
+    # save the initial branch
+    if 'start_branch' not in state:
+        state['start_branch'] = state['last_branch']
+
+    # perform the required operations
+    for node in ordered_nodes:
+        if not update_node(node, state, args.dry_run):
+            if not args.dry_run:
+                save_state(root, state)
+            return 1
+    if state['start_branch'] != state['last_branch']:
+        info('restoring initial branch {}'.format(state['start_branch']))
+        if not args.dry_run:
+            switch_to_branch(state['start_branch'])
+    if not args.dry_run:
+        save_state(root, None)
 
 
 if __name__ == '__main__':
