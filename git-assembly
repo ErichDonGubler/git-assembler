@@ -290,13 +290,13 @@ def branch_exists(name):
     return proc.returncode == 0
 
 
-def check_missing(node):
+def node_missing(node):
     if node['state']['missing'] is None:
         node['state']['missing'] = not branch_exists(node['name'])
 
-def check_missing2(n1, n2):
-    check_missing(n1)
-    check_missing(n2)
+def nodes_missing(nodes):
+    for node in nodes:
+        node_missing(node)
 
 
 def update_state(ordered_nodes, graph):
@@ -307,25 +307,31 @@ def update_state(ordered_nodes, graph):
         if node['base'] is not None:
             if not node['rebase']:
                 # base should be created when missing
-                check_missing2(node, node['base'])
+                nodes_missing([node, node['base']])
                 if node['state']['missing']:
                     node['base']['state']['used'] = True
                     mark_tree_dirty(node, graph)
             else:
                 # always rebase
-                ret = needs_rebase(node['name'], node['base']['name'])
+                if node['state']['missing'] or node['base']['state']['missing']:
+                    ret = None
+                else:
+                    ret = needs_rebase(node['name'], node['base']['name'])[0]
                 if ret is not False:
                     if ret is None:
-                        check_missing2(node, node['base'])
+                        nodes_missing([node, node['base']])
                     node['base']['state']['used'] = True
                     mark_tree_dirty(node, graph)
 
         # merge dependencies
         for dep in node['merge']:
-            ret = needs_merge(node['name'], dep['name'])
+            if node['state']['missing'] or dep['state']['missing']:
+                ret = None
+            else:
+                ret = needs_merge(node['name'], dep['name'])
             if ret is not False:
                 if ret is None:
-                    check_missing2(node, dep)
+                    nodes_missing([node, dep])
                 dep['state']['used'] = True
                 mark_tree_dirty(node, graph)
 
