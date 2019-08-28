@@ -4,7 +4,11 @@ import collections
 import argparse
 import os, sys
 
+import logging
+from logging import error, warning, info, debug
+
 APP_DSC = "update git branches using high-level assembly instructions"
+APP_SIG = "git-assembly"
 APP_VER = "1.0"
 
 
@@ -25,10 +29,6 @@ def assembly_path(root):
         return path
     return None
 
-
-def error(msg):
-    name = os.path.basename(sys.argv[0])
-    print('{}: {}'.format(name, msg), file=sys.stderr)
 
 def parse_error(path, line, msg):
     error('{}:{}: {}'.format(path, line, msg))
@@ -368,6 +368,11 @@ def main(argv):
                     help='branch to update')
     args = ap.parse_args(argv[1:])
 
+    # logging
+    levels = (logging.WARNING, logging.INFO, logging.DEBUG)
+    logging.basicConfig(level=levels[min(len(levels)-1, args.verbose)],
+                        format='{}: %(message)s'.format(APP_SIG))
+
     # assembly path
     root = repo_root()
     if root is None:
@@ -381,8 +386,7 @@ def main(argv):
             error('no assembly instructions')
             return 1
         path = os.path.relpath(path)
-        if args.verbose > 0:
-            print('reading instructions from {}'.format(path))
+        info('reading instructions from {}'.format(path))
 
     # build the list of nodes and resulting graph
     nodes = parse_assembly(path)
