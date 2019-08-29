@@ -440,7 +440,8 @@ def update_node(node, state, dry_run):
     elif dry_run:
         exists = branch_exists(node['name'])
     else:
-        debug('switching to branch {}'.format(node['name']))
+        # switch to target
+        debug('switching to branch {}'.format(color_node(node)))
         exists = switch_to_branch(node['name'])
 
     if not exists:
@@ -590,7 +591,8 @@ def main(argv):
     # restore initial branch
     if state['start_branch'] != state['last_branch']:
         level = logging.INFO if dirty else logging.WARNING
-        logging.log(level, 'restoring initial branch {}'.format(state['start_branch']))
+        branch_name = color_node(nodes[state['start_branch']])
+        logging.log(level, 'restoring initial branch {}'.format(branch_name))
         if not args.dry_run:
             switch_to_branch(state['start_branch'])
     if not args.dry_run:
