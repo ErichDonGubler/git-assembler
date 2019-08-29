@@ -560,36 +560,37 @@ def main(argv):
         return 0
     if not check_missing(ordered_nodes, args.create):
         return 1
+
+    # check worktree state
     state = read_state(root)
     state['last_branch'] = current_branch()
-    if not check_dirty(ordered_nodes):
+    dirty = check_dirty(ordered_nodes)
+
+    # exit early when possible
+    if not dirty:
         if state.get('start_branch', state['last_branch']) == state['last_branch']:
             info('already up to date')
-        else:
-            # always warn when restoring the initial branch by itself
-            warning('restoring initial branch {}'.format(state['start_branch']))
             if not args.dry_run:
-                switch_to_branch(state['start_branch'])
-        if not args.dry_run:
-            save_state(root, None)
-        return 0
+                save_state(root, None)
+            return 0
 
-    # check whether we're in the middle of other stateful activities
+    # refuse to continue if any stateful git operation is pending
     if check_pending(root):
         return 1
 
-    # save the initial branch
+    # perform the required operations
     if 'start_branch' not in state:
         state['start_branch'] = state['last_branch']
-
-    # perform the required operations
     for node in ordered_nodes:
         if not update_node(node, state, args.dry_run):
             if not args.dry_run:
                 save_state(root, state)
             return 1
+
+    # restore initial branch
     if state['start_branch'] != state['last_branch']:
-        info('restoring initial branch {}'.format(state['start_branch']))
+        level = logging.INFO if dirty else logging.WARNING
+        logging.log(level, 'restoring initial branch {}'.format(state['start_branch']))
         if not args.dry_run:
             switch_to_branch(state['start_branch'])
     if not args.dry_run:
