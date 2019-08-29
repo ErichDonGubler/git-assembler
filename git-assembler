@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# git-assembler: update git branches using high-level assembly instructions
+# Copyright(c) 2019 by wave++ "Yuri D'Elia" <wavexx@thregr.org>
+# Distributed under the GNU GPLv3+ license, WITHOUT ANY WARRANTY.
 import subprocess as sp
 import collections
 import argparse
