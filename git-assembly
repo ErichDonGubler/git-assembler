@@ -59,7 +59,7 @@ def parse_assembly(path):
             parse_error(path, n, 'invalid assembly line')
             return None
         cmd, branch, args = tokens[0], tokens[1], tokens[2:]
-        if cmd not in {'branch', 'merge', 'rebase'}:
+        if cmd not in {'base', 'merge', 'rebase'}:
             parse_error(path, n, 'unknown command: {}'.format(cmd))
             return None
 
@@ -68,7 +68,7 @@ def parse_assembly(path):
             node = empty_node(branch)
             nodes[branch] = node
 
-        if cmd == 'branch' or cmd == 'rebase':
+        if cmd == 'base' or cmd == 'rebase':
             # define the branch base
             if node['base']:
                 parse_error(path, n, 'branch base/type cannot be redefined')
