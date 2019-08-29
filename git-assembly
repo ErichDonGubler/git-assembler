@@ -194,22 +194,22 @@ def assembly_graph(nodes, targets=None):
     return [nodes[name] for name in sorted(roots)]
 
 
-class ANSI:
-    bold  = "\033[;1m"
-    green = "\033[0;32m"
-    red   = "\033[1;31m"
-    reset = "\033[0;0m"
+class Ansi:
+    BOLD  = "\033[;1m"
+    GREEN = "\033[0;32m"
+    RED   = "\033[1;31m"
+    RESET = "\033[0;0m"
 
 def color_node(node):
     name = node['name']
     if not sys.stdout.isatty():
         return name
     elif node['state']['missing']:
-        return ANSI.red + name + ANSI.reset
+        return Ansi.RED + name + Ansi.RESET
     elif node['state']['dirty']:
-        return ANSI.bold + name + ANSI.reset
+        return Ansi.BOLD + name + Ansi.RESET
     elif node['state']['used']:
-        return ANSI.green + name + ANSI.reset
+        return Ansi.GREEN + name + Ansi.RESET
     else:
         return name
 
