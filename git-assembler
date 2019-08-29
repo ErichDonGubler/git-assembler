@@ -615,8 +615,12 @@ def main(argv):
         return 1
 
     # perform the required operations
-    if 'start_branch' not in state:
+    if 'start_branch' in state:
+        start_set = False
+    else:
         state['start_branch'] = state['last_branch']
+        start_set = True
+
     for node in ordered_nodes:
         state['last_msg'] = None
         if not update_node(node, state, args.dry_run):
@@ -631,7 +635,7 @@ def main(argv):
 
     # restore initial branch
     if state['start_branch'] != state['last_branch']:
-        level = logging.INFO if dirty else logging.WARNING
+        level = logging.INFO if start_set else logging.WARNING
         branch_name = color_node(nodes[state['start_branch']])
         logging.log(level, 'restoring initial branch {}'.format(branch_name))
         if not args.dry_run:
