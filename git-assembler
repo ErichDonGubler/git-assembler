@@ -5,12 +5,13 @@ import argparse
 import os, sys
 import shutil
 import json
+from enum import Enum
 
 import logging
 from logging import error, warning, info, debug
 
 APP_DSC = "update git branches using high-level assembly instructions"
-APP_SIG = "git-assembly"
+APP_SIG = "git-assembler"
 APP_VER = "1.0"
 
 
@@ -59,7 +60,7 @@ def parse_assembly(path):
             parse_error(path, n, 'invalid assembly line')
             return None
         cmd, branch, args = tokens[0], tokens[1], tokens[2:]
-        if cmd not in {'base', 'merge', 'rebase'}:
+        if cmd not in {'base', 'merge', 'rebase', 'stage'}:
             parse_error(path, n, 'unknown command: {}'.format(cmd))
             return None
 
@@ -68,7 +69,7 @@ def parse_assembly(path):
             node = empty_node(branch)
             nodes[branch] = node
 
-        if cmd == 'base' or cmd == 'rebase':
+        if cmd in {'base', 'rebase', 'stage'}:
             # define the branch base
             if node['base']:
                 parse_error(path, n, 'branch base/type cannot be redefined')
@@ -77,7 +78,12 @@ def parse_assembly(path):
                 parse_error(path, n, 'invalid base for branch {}'.format(branch))
                 return None
             node['base'] = args[0]
-            node['rebase'] = (cmd == 'rebase')
+            if cmd == 'stage':
+                node['type'] = BranchType.STAGE
+            elif cmd == 'rebase':
+                node['type'] = BranchType.REBASE
+            else:
+                node['type'] = BranchType.BASE
         elif cmd == 'merge':
             # add dependencies
             for arg in args:
@@ -89,13 +95,19 @@ def parse_assembly(path):
     return nodes
 
 
+class BranchType(Enum):
+    BRANCH = 0 # regular branch (no base)
+    BASE   = 1 # optional bootstrapping
+    REBASE = 2 # rebase when needed
+    STAGE  = 3 # bootstrap on any change
+
 def leaf_node(node):
     return len(node['deps']) == 0
 
 def empty_node(name):
     return {'name': name,
             'base': None,
-            'rebase': False,
+            'type': BranchType.BRANCH,
             'merge': [],
             'deps': [],
             'state': {'dirty': False,
@@ -226,8 +238,13 @@ def dump_graph(graph, root=None, depth=0):
         suffix = ''
         base_node = node['base']
         while base_node is not None:
+            if node['type'] == BranchType.STAGE:
+                suffix += ' <= '
+            elif node['type'] == BranchType.REBASE:
+                suffix += ' <- '
+            else:
+                suffix += ' .. '
             base_name = color_node(base_node)
-            suffix += ' <- ' if node['rebase'] else ' .. '
             if base_node['base'] is not None and len(base_node['merge']) != 0:
                 # split the branch into a fake root
                 suffix += '[' + base_name + ']'
@@ -265,8 +282,7 @@ def mark_tree_dirty(node, graph):
         graph = [graph]
     dirty = False
     for root in graph:
-        if root is node or mark_tree_dirty(node, root['merge']) or \
-           (root['rebase'] and mark_tree_dirty(node, root['base'])):
+        if root is node or mark_tree_dirty(node, root['deps']):
             root['state']['dirty'] = dirty = True
     return dirty
 
@@ -328,14 +344,14 @@ def update_state(ordered_nodes, graph):
             continue
 
         if node['base'] is not None:
-            if not node['rebase']:
-                # base should be created when missing
+            if node['type'] == BranchType.BASE:
+                # base should be created only when missing
                 nodes_missing([node, node['base']])
                 if node['state']['missing']:
                     node['base']['state']['used'] = True
                     mark_tree_dirty(node, graph)
             else:
-                # always rebase
+                # always check if rebase is needed
                 if node['state']['missing'] or node['base']['state']['missing']:
                     ret = None
                 else:
@@ -355,8 +371,10 @@ def update_state(ordered_nodes, graph):
             if ret is not False:
                 if ret is None:
                     nodes_missing([node, dep])
-                dep['state']['used'] = True
                 mark_tree_dirty(node, graph)
+                dep['state']['used'] = True
+                if node['type'] == BranchType.STAGE:
+                    node['base']['state']['used'] = True
 
 
 def check_missing(nodes, create):
@@ -364,6 +382,7 @@ def check_missing(nodes, create):
     for node in nodes:
         if node['state']['missing']:
             if node['base'] is None:
+                # find the branch requiring node
                 state = False
                 for ref in nodes:
                     if node in ref['deps']:
@@ -374,7 +393,8 @@ def check_missing(nodes, create):
                     error('branch {} is required but does not exist'.format(color_node(node)))
                 else:
                     error('branch {} is required by {} but does not exist'.format(color_node(node), color_node(ref)))
-            elif not create:
+            elif node['type'] != BranchType.STAGE and not create:
+                # prevent creation unless explicitly allowed
                 state = False
                 error('branch {} needs creation from {}'.format(color_node(node), color_node(node['base'])))
     return state
@@ -428,43 +448,55 @@ def update_node(node, state, dry_run):
         return True
 
     # logging helper
-    def dry_info(msg):
-        if dry_run:
-            warning(msg)
-        else:
-            info(msg)
+    def log(prio, msg):
+        state['last_msg'] = msg
+        if dry_run and prio >= logging.INFO:
+            prio = logging.WARNING
+        logging.log(prio, msg)
 
-    # switch branch if needed
-    if node['name'] == state['last_branch']:
-        exists = True
-    elif dry_run:
-        exists = branch_exists(node['name'])
-    else:
-        # switch to target
-        debug('switching to branch {}'.format(color_node(node)))
-        exists = switch_to_branch(node['name'])
-
-    if not exists:
-        # branch is missing, see if it can be bootstrapped
-        if node['base'] is None:
-            return False
-        else:
-            warning('creating branch {} from {}'.format(color_node(node), color_node(node['base'])))
+    if node['type'] == BranchType.STAGE:
+        # switch to base branch, erase target (if exists)
+        if node['base']['name'] != state['last_branch']:
+            log(logging.DEBUG, 'switching to branch {}'.format(color_node(node['base'])))
             if not dry_run:
-                proc = sp.run(['git', 'checkout', '-q', '--no-guess', '-b', node['name'], node['base']['name']])
-                if proc.returncode != 0:
+                if not switch_to_branch(node['base']['name']):
                     return False
             state['last_branch'] = node['name']
+        if not node['state']['missing']:
+            log(logging.INFO, 'erasing existing branch {}'.format(color_node(node)))
+            if not dry_run:
+                proc = sp.run(['git', 'branch', '-q', '-D', node['name']])
+                if proc.returncode != 0:
+                    return False
+        exists = False
+    elif node['name'] == state['last_branch']:
+        exists = True
+    else:
+        # switch to target
+        log(logging.DEBUG, 'switching to branch {}'.format(color_node(node)))
+        if dry_run:
+            exists = branch_exists(node['name'])
+        else:
+            exists = switch_to_branch(node['name'])
+
+    if not exists:
+        # branch is missing, bootstrap
+        log(logging.INFO, 'creating branch {} from {}'.format(color_node(node), color_node(node['base'])))
+        if not dry_run:
+            proc = sp.run(['git', 'checkout', '-q', '--no-guess', '-b', node['name'], node['base']['name']])
+            if proc.returncode != 0:
+                return False
+        state['last_branch'] = node['name']
     else:
         state['last_branch'] = node['name']
 
         # rebase when required
-        if node['rebase'] and node['base'] is not None:
+        if node['type'] == BranchType.REBASE and node['base'] is not None:
             dirty, tip, fp = needs_rebase(node['name'], node['base']['name'])
             if dirty is None:
                 return False
             elif dirty:
-                dry_info('rebasing {} onto {}'.format(color_node(node), color_node(node['base'])))
+                log(logging.INFO, 'rebasing {} onto {}'.format(color_node(node), color_node(node['base'])))
                 if not dry_run:
                     proc = sp.run(['git', 'rebase', '-q', '--rebase-merges',
                                    '--onto', node['base']['name'], fp, node['name']])
@@ -481,7 +513,7 @@ def update_node(node, state, dry_run):
         elif not needs_merge(node['name'], dep['name']):
             continue
 
-        dry_info('merging {} into {}'.format(color_node(dep), color_node(node)))
+        log(logging.INFO, 'merging {} into {}'.format(color_node(dep), color_node(node)))
         if not dry_run:
             proc = sp.run(['git', 'merge', '-q', '--no-edit', dep['name']])
             if proc.returncode != 0:
@@ -583,9 +615,15 @@ def main(argv):
     if 'start_branch' not in state:
         state['start_branch'] = state['last_branch']
     for node in ordered_nodes:
+        state['last_msg'] = None
         if not update_node(node, state, args.dry_run):
             if not args.dry_run:
                 save_state(root, state)
+            msg = state['last_msg']
+            if msg is not None:
+                error('error while ' + msg)
+            warning('stopping at branch {}, fix/commit then re-run {}'.format(
+                color_node(nodes[state['last_branch']]), APP_SIG))
             return 1
 
     # restore initial branch
