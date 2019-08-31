@@ -8,7 +8,7 @@ import argparse
 import os, sys
 import shutil
 import json
-from enum import Enum
+from enum import Enum, IntEnum
 
 import logging
 from logging import error, warning, info, debug
@@ -544,6 +544,11 @@ def check_pending(root):
     return False
 
 
+class ExitStatus(IntEnum):
+    SUCCESS = 0
+    ERROR   = 1
+    CONFIG  = 2
+
 def main(argv):
     ap = argparse.ArgumentParser(description=APP_DSC)
     ap.add_argument('-a', '--assembly', metavar='PATH',
@@ -569,7 +574,7 @@ def main(argv):
     # assembly path
     root = repo_root()
     if root is None:
-        return 1
+        return ExitStatus.CONFIG
 
     if args.assembly:
         path = args.assembly
@@ -577,30 +582,30 @@ def main(argv):
         path = assembly_path(root)
         if path is None:
             error('no assembly instructions')
-            return 1
+            return ExitStatus.CONFIG
         path = os.path.relpath(path)
         debug('reading instructions from {}'.format(path))
 
     # build the list of nodes and resulting graph
     nodes = parse_assembly(path)
     if nodes is None:
-        return 1
+        return ExitStatus.CONFIG
     targets = set(args.target) if len(args.target) else None
     graph = assembly_graph(nodes, targets)
     if graph is None:
-        return 1
+        return ExitStatus.CONFIG
     if len(graph) == 0:
         error('nothing to do')
-        return 1
+        return ExitStatus.CONFIG
 
     # update and check current state
     ordered_nodes = topo_sort(graph)
     update_state(ordered_nodes, graph)
     if args.state:
         dump_graph(graph)
-        return 0
+        return ExitStatus.SUCCESS
     if not check_missing(ordered_nodes, args.create):
-        return 1
+        return ExitStatus.ERROR
 
     # check worktree state
     state = read_state(root)
@@ -613,11 +618,11 @@ def main(argv):
             info('already up to date')
             if not args.dry_run:
                 save_state(root, None)
-            return 0
+            return ExitStatus.SUCCESS
 
     # refuse to continue if any stateful git operation is pending
     if check_pending(root):
-        return 1
+        return ExitStatus.ERROR
 
     # perform the required operations
     if 'start_branch' in state:
@@ -636,7 +641,7 @@ def main(argv):
                 error('error while ' + msg)
             warning('stopping at branch {}, fix/commit then re-run {}'.format(
                 color_node(nodes[state['last_branch']]), APP_SIG))
-            return 1
+            return ExitStatus.ERROR
 
     # restore initial branch
     if state['start_branch'] != state['last_branch']:
@@ -647,6 +652,7 @@ def main(argv):
             switch_to_branch(state['start_branch'])
     if not args.dry_run:
         save_state(root, None)
+    return ExitStatus.SUCCESS
 
 
 if __name__ == '__main__':
