@@ -227,7 +227,8 @@ def dump_graph(graph, root=None, depth=0):
             if base_node['base'] is not None and len(base_node['merge']) != 0:
                 # split the branch into a fake root
                 suffix += '[' + base_name + ']'
-                root.append(base_node)
+                if base_node not in root:
+                    root.append(base_node)
                 break
             suffix += base_name
             base_node = base_node['base']
