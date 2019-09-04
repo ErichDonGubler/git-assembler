@@ -3,7 +3,6 @@
 # Copyright(c) 2019 by wave++ "Yuri D'Elia" <wavexx@thregr.org>
 # Distributed under the GNU GPLv3+ license, WITHOUT ANY WARRANTY.
 import subprocess as sp
-import collections
 import argparse
 import os, sys
 import shutil
@@ -159,53 +158,30 @@ def assembly_graph(nodes, targets=None):
                 error('unknown branch {}'.format(branch))
                 return None
 
-    # split into disjoint groups
-    groups = []
-    while len(left):
-        start = left.pop()
-        if leaf_node(nodes[start]):
-            continue
-
-        # check for cycles
-        seen = set()
-        stack = collections.deque([start])
-        while len(stack):
-            branch = stack.popleft()
-            if branch in seen:
-                error('dependency cycle detected for branch {}'.format(branch))
-                return None
-            seen.add(branch)
-            for dep in nodes[branch]['deps']:
-                if not leaf_node(dep):
-                    stack.append(dep['name'])
-
-        groups.append(seen)
-        left -= seen
-
-    # coalesce groups
-    left = list(groups)
-    groups = []
-    while len(left):
-        buf = left.pop()
-        group = None
-        for tmp in groups:
-            if not buf.isdisjoint(tmp):
-                group = tmp
-                break
-        if group is not None:
-            group |= buf
-        else:
-            groups.append(buf)
-
     # find roots
-    roots = []
-    for group in groups:
-        connected = set()
-        for branch in group:
-            for dep in nodes[branch]['deps']:
-                connected.add(dep['name'])
-        roots.extend(group - connected)
+    connected = set()
+    for branch in left:
+        for dep in nodes[branch]['deps']:
+            connected.add(dep['name'])
+    roots = set(left) - connected
+    if len(roots) == 0:
+        # graph has no root nodes, instead of exiting immediately pick a
+        # random node to produce a more useful message later
+        roots.add(next(iter(left)))
 
+    # check for cycles
+    stack = [(root, set()) for root in roots]
+    while len(stack):
+        branch, seen = stack.pop()
+        if branch in seen:
+            error('dependency cycle detected for branch {}'.format(branch))
+            return None
+        seen.add(branch)
+        for dep in nodes[branch]['deps']:
+            if not leaf_node(dep):
+                stack.append((dep['name'], set(seen)))
+
+    # return root nodes
     return [nodes[name] for name in sorted(roots)]
 
 
