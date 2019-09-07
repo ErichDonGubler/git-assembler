@@ -532,19 +532,19 @@ class ExitStatus(IntEnum):
 
 def main(argv):
     ap = argparse.ArgumentParser(description=APP_DSC)
-    ap.add_argument('-a', '--assembly', metavar='PATH',
+    ap.add_argument('-f', '--config', metavar='PATH',
                     help='explicit path to assembly file')
     ap.add_argument('-c', '--create', action='store_true',
                     help='create required branches')
     ap.add_argument('-n', '--dry-run', action='store_true',
-                    help='do not modify the repository')
-    ap.add_argument('-s', '--state', action='store_true',
-                    help='show repository state')
+                    help='show what assemble would do')
+    ap.add_argument('-a', '--assemble', action='store_true',
+                    help='assemble the target branches')
     ap.add_argument('-v', '--verbose', default=0, action='count',
                     help='increase verbosity')
     ap.add_argument('--version', action='version', version=APP_VER)
     ap.add_argument('target', nargs='*',
-                    help='branch to update')
+                    help='branch to update/display')
     args = ap.parse_args(argv[1:])
 
     # logging
@@ -557,8 +557,8 @@ def main(argv):
     if root is None:
         return ExitStatus.CONFIG
 
-    if args.assembly:
-        path = args.assembly
+    if args.config:
+        path = args.config
     else:
         path = assembly_path(root)
         if path is None:
@@ -587,7 +587,7 @@ def main(argv):
     state['last_branch'] = state['current_branch']
 
     # exit early when possible
-    if args.state:
+    if not args.assemble and not args.dry_run:
         dump_graph(graph, state)
         return ExitStatus.SUCCESS
     if not check_missing(ordered_nodes, args.create):
