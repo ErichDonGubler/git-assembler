@@ -164,7 +164,7 @@ def assembly_graph(nodes, targets=None):
         for dep in nodes[branch]['deps']:
             connected.add(dep['name'])
     roots = set(left) - connected
-    if len(roots) == 0:
+    if len(roots) == 0 and len(left) != 0:
         # graph has no root nodes, instead of exiting immediately pick a
         # random node to produce a more useful message later
         roots.add(next(iter(left)))
