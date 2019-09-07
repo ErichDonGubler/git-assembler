@@ -55,7 +55,18 @@ msg()
 
 verb()
 {
-  [ "$VERBOSE" = 1 ] && msg "$@"
+  if [ "$VERBOSE" = 1 ]
+  then
+    msg "$@"
+  fi
+}
+
+out()
+{
+  if [ "$VERBOSE" = 1 ]
+  then
+    echo "$@"
+  fi
 }
 
 fail()
@@ -82,4 +93,28 @@ quiet()
 not()
 {
   "$@" && false || true
+}
+
+capture()
+{
+  local flags="$-"
+  set +x
+  OUT="$("$@" 2>&1)"
+  set -"$flags"
+}
+
+assert_cycle()
+{
+  capture not "$GAS"
+  out "$OUT"
+  local ret=1
+  for branch in "$@"
+  do
+    if [ "$OUT" = "git-assembler: dependency cycle detected for branch $branch" ]
+    then
+      ret=0
+      break
+    fi
+  done
+  return "$ret"
 }

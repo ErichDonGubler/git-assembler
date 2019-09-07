@@ -37,8 +37,11 @@ do
     [ "$DESCRIBE" = 1 ] && echo "$out" || echo "ok"
   else
     echo "fail"
-    echo "========"
-    echo "$out"
+    if [ "$VERBOSE" = 1 ]
+    then
+	    echo "========"
+	    echo "$out"
+    fi
     exit "$v"
   fi
 done

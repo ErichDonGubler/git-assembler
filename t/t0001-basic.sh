@@ -2,24 +2,23 @@
 DESC="smoke tests"
 . ./lib.sh
 
-# ensure the test area is pristine
+verb "ensure the test area is pristine"
 test -x "$GAS"
 not quiet "$GAS"
 
-# initialize a new repo with two empty branches
+verb "initialize a new repository"
 git init -q
-git checkout -q -b test
 
-# read .git/assembly
+verb "test reading .git/assembly"
 echo "base test master" > .git/assembly
 quiet "$GAS"
 rm .git/assembly
 
-# read .gitassembly
+verb "test reading .gitassembly"
 echo "base test master" > .gitassembly
 quiet "$GAS"
 
-# ensure .git/assembly is favored by using an empty config
+verb "ensure .git/assembly takes precedence"
 touch .git/assembly
-out="$(not $GAS 2>&1)"
-test "$out" = "git-assembler: nothing to do"
+capture not "$GAS"
+test "$OUT" = "git-assembler: nothing to do"
