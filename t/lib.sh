@@ -9,10 +9,9 @@ VERBOSE=0
 DEBUG=0
 HELP=0
 
-while getopts vdDr:h optname
+while getopts vdDh optname
 do
   case "$optname" in
-  r) ROOT="$(realpath "$optarg")" ;;
   v) VERBOSE=1 ;;
   d) DEBUG=1 ;;
   D) echo "$DESC"; exit 0 ;;
@@ -23,15 +22,14 @@ done
 
 if [ "$HELP" = 1 ]
 then
-  echo "Usage: $0 [-dDhv] [-r ROOT]
+  echo "Usage: $0 [-dDhv]
 
 $NAME: $DESC
 
   -d: turn on test debugging
   -D: describe test
   -h: this help
-  -v: verbose mode
-  -r ROOT: set source root"
+  -v: verbose mode"
   exit 0
 fi
 

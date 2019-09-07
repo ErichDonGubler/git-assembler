@@ -3,7 +3,7 @@ VERBOSE=0
 DESCRIBE=0
 HELP=0
 
-while getopts vDr:h optname
+while getopts vDh optname
 do
   case "$optname" in
   v) VERBOSE=1 ;;
@@ -15,14 +15,13 @@ done
 
 if [ "$HELP" = 1 ]
 then
-  echo "Usage: $0 [-Dhv] [-r ROOT]
+  echo "Usage: $0 [-Dhv]
 
 git-assembler test runner
 
   -D: describe tests
   -h: this help
-  -v: verbose mode
-  -r ROOT: set source root"
+  -v: verbose mode"
   exit 0
 fi
 
