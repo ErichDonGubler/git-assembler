@@ -5,10 +5,6 @@ DESC="basic cycle detection"
 verb "initialize a new repo"
 git init -q
 
-verb "test simple config"
-echo "base test master" > .gitassembly
-quiet "$GAS"
-
 verb "test 2-node fully cyclic graph"
 cat <<EOF > .gitassembly
 base master test

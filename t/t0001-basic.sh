@@ -4,21 +4,21 @@ DESC="smoke tests"
 
 verb "ensure the test area is pristine"
 test -x "$GAS"
-not quiet "$GAS"
+not quiet gas
 
 verb "initialize a new repository"
 git init -q
 
 verb "test reading .git/assembly"
 echo "base test master" > .git/assembly
-quiet "$GAS"
+quiet gas
 rm .git/assembly
 
 verb "test reading .gitassembly"
 echo "base test master" > .gitassembly
-quiet "$GAS"
+quiet gas
 
 verb "ensure .git/assembly takes precedence"
 touch .git/assembly
-capture not "$GAS"
+capture not gas
 test "$OUT" = "git-assembler: nothing to do"

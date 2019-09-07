@@ -103,9 +103,14 @@ capture()
   set -"$flags"
 }
 
+gas()
+{
+  "$GAS" "$@"
+}
+
 assert_cycle()
 {
-  capture not "$GAS"
+  capture not gas
   out "$OUT"
   local ret=1
   for branch in "$@"
