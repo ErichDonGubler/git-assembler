@@ -29,7 +29,7 @@ fi
 # test runner
 find . -mindepth 1 -maxdepth 1 -name "t*-*.sh" -type f -perm 755 | sort | while read t
 do
-  echo -n "`basename "$t" .sh`: "
+  printf "%-20s : " "$(basename "$t" .sh)"
   out="`"$t" "$@" 2>&1`"
   v="$?"
   if [ "$v" = 0 ]

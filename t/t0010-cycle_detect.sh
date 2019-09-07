@@ -1,5 +1,5 @@
 #!/bin/sh
-DESC="smoke tests"
+DESC="basic cycle detection"
 . ./lib.sh
 
 verb "initialize a new repo"
