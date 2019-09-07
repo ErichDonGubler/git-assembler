@@ -112,14 +112,13 @@ assert_cycle()
 {
   capture not gas
   out "$OUT"
-  local ret=1
   for branch in "$@"
   do
     if [ "$OUT" = "git-assembler: dependency cycle detected for branch $branch" ]
     then
-      ret=0
+      return 0
       break
     fi
   done
-  return "$ret"
+  return 1
 }
