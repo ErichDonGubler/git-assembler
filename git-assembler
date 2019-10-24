@@ -546,6 +546,8 @@ def main(argv):
                     help='explicit path to assembly file')
     ap.add_argument('-c', '--create', action='store_true',
                     help='create required branches')
+    ap.add_argument('--recreate', action='store_true',
+                    help='recreate base branches (implies -c, destructive!)')
     ap.add_argument('-n', '--dry-run', action='store_true',
                     help='show what assemble would do')
     ap.add_argument('-a', '--assemble', action='store_true',
@@ -588,6 +590,13 @@ def main(argv):
     if len(graph) == 0:
         error('nothing to do')
         return ExitStatus.CONFIG
+
+    # recreate works just by switching all BASE branches to STAGE
+    if args.recreate:
+        args.create = True
+        for node in nodes.values():
+            if node['type'] == BranchType.BASE:
+                node['type'] = BranchType.STAGE
 
     # update and check current state
     ordered_nodes = topo_sort(graph)
