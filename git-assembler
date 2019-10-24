@@ -423,8 +423,9 @@ def save_state(root, state):
 
 def switch_to_branch(name):
     proc = sp.run(['git', 'checkout', '-q', '--no-guess', name],
-                  stdout=sp.DEVNULL, stderr=sp.DEVNULL)
-    return proc.returncode == 0
+                  stdout=sp.DEVNULL, stderr=sp.PIPE)
+    stderr = proc.stderr.decode(sys.getdefaultencoding()).rstrip()
+    return proc.returncode, stderr
 
 
 def update_node(node, state, dry_run):
@@ -443,7 +444,9 @@ def update_node(node, state, dry_run):
         if node['base']['name'] != state['last_branch']:
             log(logging.DEBUG, 'switching to branch {}'.format(color_node(node['base'])))
             if not dry_run:
-                if not switch_to_branch(node['base']['name']):
+                ret, err = switch_to_branch(node['base']['name'])
+                if ret != 0:
+                    state['last_err'] = err
                     return False
             state['last_branch'] = node['name']
         if not node['state']['missing']:
@@ -461,7 +464,14 @@ def update_node(node, state, dry_run):
         if dry_run:
             exists = branch_exists(node['name'])
         else:
-            exists = switch_to_branch(node['name'])
+            # check existence optimistically to avoid extra queries
+            ret, err = switch_to_branch(node['name'])
+            exists = (ret == 0)
+            if ret != 0:
+                # slow path to exclude checkout errors
+                if branch_exists(node['name']):
+                    state['last_err'] = err
+                    return False
 
     if not exists:
         # branch is missing, bootstrap
@@ -612,12 +622,14 @@ def main(argv):
 
     for node in ordered_nodes:
         state['last_msg'] = None
+        state['last_err'] = None
         if not update_node(node, state, args.dry_run):
             if not args.dry_run:
                 save_state(root, state)
-            msg = state['last_msg']
-            if msg is not None:
-                error('error while ' + msg)
+            if state['last_msg'] is not None:
+                error('error while ' + state['last_msg'])
+            if state['last_err'] is not None:
+                print(state['last_err'], file=sys.stderr)
             warning('stopping at branch {}, fix/commit then re-run {}'.format(
                 color_node(nodes[state['last_branch']]), APP_SIG))
             return ExitStatus.ERROR
@@ -628,7 +640,12 @@ def main(argv):
         branch_name = color_node(nodes[state['start_branch']])
         logging.log(level, 'restoring initial branch {}'.format(branch_name))
         if not args.dry_run:
-            switch_to_branch(state['start_branch'])
+            ret, err = switch_to_branch(state['start_branch'])
+            if ret != 0:
+                error('error restoring initial branch {}'.format(branch_name))
+                print(err, file=sys.stderr)
+                return ExitStatus.ERROR
+
     if not args.dry_run:
         save_state(root, None)
     return ExitStatus.SUCCESS
