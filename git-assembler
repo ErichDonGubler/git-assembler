@@ -322,7 +322,7 @@ def nodes_missing(nodes):
         node_missing(node)
 
 
-def update_state(ordered_nodes, graph):
+def update_state(ordered_nodes, graph, force):
     for node in ordered_nodes:
         if leaf_node(node):
             continue
@@ -336,7 +336,7 @@ def update_state(ordered_nodes, graph):
                     mark_tree_dirty(node, graph)
             else:
                 # always check if rebase is needed
-                if node['state']['missing'] or node['base']['state']['missing']:
+                if force or node['state']['missing'] or node['base']['state']['missing']:
                     ret = None
                 else:
                     ret = needs_rebase(node['name'], node['base']['name'])[0]
@@ -600,7 +600,7 @@ def main(argv):
 
     # update and check current state
     ordered_nodes = topo_sort(graph)
-    update_state(ordered_nodes, graph)
+    update_state(ordered_nodes, graph, args.recreate)
     state = read_state(root)
     state['current_branch'] = current_branch()
     state['last_branch'] = state['current_branch']
