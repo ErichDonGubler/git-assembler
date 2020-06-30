@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # git-assembler: update git branches using high-level assembly instructions
-# Copyright(c) 2019 by wave++ "Yuri D'Elia" <wavexx@thregr.org>
+# Copyright(c) 2019-2020 by wave++ "Yuri D'Elia" <wavexx@thregr.org>
 # Distributed under the GNU GPLv3+ license, WITHOUT ANY WARRANTY.
 import subprocess as sp
 import argparse
@@ -307,7 +307,7 @@ def needs_rebase(dst, base):
     fp = fork_point(dst, base)
     if fp is None:
         return None, None, None
-    return tip != fp, tip, fp
+    return tip != fp
 
 
 def branch_exists(name):
@@ -340,11 +340,11 @@ def update_state(ordered_nodes, graph, force):
             else:
                 # always check if rebase is needed
                 if force or node['state']['missing'] or node['base']['state']['missing']:
-                    ret = None
+                    dirty = None
                 else:
-                    ret = needs_rebase(node['name'], node['base']['name'])[0]
-                if ret is not False:
-                    if ret is None:
+                    dirty = needs_rebase(node['name'], node['base']['name'])
+                if dirty is not False:
+                    if dirty is None:
                         nodes_missing([node, node['base']])
                     node['base']['state']['used'] = True
                     mark_tree_dirty(node, graph)
@@ -489,14 +489,14 @@ def update_node(node, state, dry_run):
 
         # rebase when required
         if node['type'] == BranchType.REBASE and node['base'] is not None:
-            dirty, tip, fp = needs_rebase(node['name'], node['base']['name'])
+            dirty = needs_rebase(node['name'], node['base']['name'])
             if dirty is None:
                 return False
             elif dirty:
                 log(logging.INFO, 'rebasing {} onto {}'.format(color_node(node), color_node(node['base'])))
                 if not dry_run:
                     proc = sp.run(['git', 'rebase', '-q', '--rebase-merges',
-                                   '--onto', node['base']['name'], fp, node['name']])
+                                   '--fork-point', node['name']])
                     if proc.returncode != 0:
                         return False
 
