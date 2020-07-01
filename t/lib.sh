@@ -122,3 +122,13 @@ assert_cycle()
   done
   return 1
 }
+
+commit()
+{
+  git commit -q -m '' --allow-empty-message "$@"
+}
+
+checkout()
+{
+  git checkout -q "$@"
+}
