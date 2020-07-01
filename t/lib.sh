@@ -108,13 +108,18 @@ gas()
   "$GAS" "$@"
 }
 
+assert_out_regex()
+{
+  echo -n "$OUT" | grep -q "^git-assembler: $1\$"
+}
+
 assert_cycle()
 {
   capture not gas
   out "$OUT"
   for branch in "$@"
   do
-    if [ "$OUT" = "git-assembler: dependency cycle detected for branch $branch" ]
+    if assert_out_regex "dependency cycle detected for branch $branch"
     then
       return 0
       break

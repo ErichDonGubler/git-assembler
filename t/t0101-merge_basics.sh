@@ -21,12 +21,12 @@ EOF
 
 verb "ensure merge is run"
 capture gas -av
-test "$OUT" = "git-assembler: merging test into master"
+assert_out_regex "merging test into master"
 test -f file_test
 
 verb "ensure merge is not run twice"
 capture gas -av
-test "$OUT" = "git-assembler: already up to date"
+assert_out_regex "already up to date"
 
 verb "adding a commit to be merged"
 checkout test
@@ -38,5 +38,5 @@ not test -f file_test2
 
 verb "ensure merge detects new changes"
 capture gas -av
-test "$OUT" = "git-assembler: merging test into master"
+assert_out_regex "merging test into master"
 test -f file_test2

@@ -21,4 +21,4 @@ quiet gas
 verb "ensure .git/assembly takes precedence"
 touch .git/assembly
 capture not gas
-test "$OUT" = "git-assembler: nothing to do"
+assert_out_regex "nothing to do"
