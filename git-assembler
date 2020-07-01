@@ -247,6 +247,8 @@ def dump_graph(graph, state, root=None, depth=0):
                 suffix += '[' + base_name + ']'
                 root.append(base_node)
                 break
+            if base_node['type'] == BranchType.STAGE:
+                base_name = '(' + base_name + ')'
             suffix += base_name
             base_node = base_node['base']
 
@@ -254,7 +256,10 @@ def dump_graph(graph, state, root=None, depth=0):
             prefix += '>'
         if node['name'] == state.get('start_branch'):
             suffix = '*' + suffix
-        print(prefix + color_node(node) + suffix)
+        node_name = color_node(node)
+        if node['type'] == BranchType.STAGE:
+            node_name = '(' + node_name + ')'
+        print(prefix + node_name + suffix)
 
         merge = node['merge']
         if len(merge):
