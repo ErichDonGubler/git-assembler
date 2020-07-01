@@ -7,7 +7,7 @@ following a simple declarative script.
 
 It can be used to follow remote branches (such as pull requests)
 conveniently, test multiple patches together, work on interdependent
-branches easily while waiting for upstream to merge them...
+feature branches easily while waiting for upstream and so on...
 
 .. contents::
 
@@ -149,15 +149,15 @@ remotes and *then* call ``git as -a`` to merge all changes into
   git as
   git as -a
 
-It's useless to call ``git pull`` in this scenario, since
-``git-assembler`` can do the same while also showing a more
+It's useless to call ``git pull`` in this scenario since
+``git-assembler`` will do the same while also showing a more
 comprehensive repository status *before* performing the required merges.
 
-This is also entirely optional: you can skip ``merge master
-origin/master`` in the assembly file and use ``git pull`` as usual,
-although in this case you still have to fetch the additional remotes
-manually in order to see/use all available updates with ``git as``
-(essentially doing the same, but with more commands).
+This is also entirely optional: you can skip
+``merge master origin/master`` in the assembly file and use ``git pull``
+as usual, although in this case you still have to fetch the additional
+remotes manually in order to see/use all available updates with
+``git as`` (essentially doing the same, but with more commands).
 
 
 Rebasing local branches
