@@ -503,7 +503,10 @@ def update_node(node, state, dry_run):
 
         # rebase when required
         if node['type'] == BranchType.REBASE and node['base'] is not None:
-            dirty = needs_rebase(node['name'], node['base']['name'])
+            if node['base']['state']['dirty']:
+                dirty = True
+            else:
+                dirty = needs_rebase(node['name'], node['base']['name'])
             if dirty is None:
                 return False
             elif dirty:
