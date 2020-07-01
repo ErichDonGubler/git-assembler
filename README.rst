@@ -207,6 +207,10 @@ Empty lines, and lines starting with "#" are ignored. Leading and
 trailing whitespace is also ignored, allowing both commands and comments
 to be indented. Each commands starts on it's own line.
 
+Commands that define a target branch type (``base``, ``stage``,
+``rebase``) cannot be specified more than once.
+
+
 Commands
 --------
 
@@ -256,7 +260,7 @@ merge
 
 :Syntax: ``merge target branch [branch...]``
 :Description:
-   Merge ``branch`` into ``target`` every time ``target`` is updated.
+   Merge ``branch`` into ``target`` every time ``branch`` is updated.
    Multiple branches to merge can be given on the same command.
    ``merge`` can be repeated to specify more branches on multiple lines.
    The merge order follows the declaration order.
