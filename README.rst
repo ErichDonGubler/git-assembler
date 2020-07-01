@@ -135,26 +135,29 @@ Display the current status::
 By reading the graph, we see "master" is the current branch and is
 out-of-date (shown in bold). "master" has three branches which are
 merged into it. "origin/master" is in sync (we just cloned from it), but
-"user1/feature" and "user2/bugfixes" have more recent commits that need
-to be merged back into "master" (both are shown in green).
+"user1/feature" and "user2/bugfixes" (shown in green) have more recent
+commits that need to be merged back into "master".
 
 To perform the merges as needed use ``git as -a``.
 
-To update your repository in the future you need to fetch all remotes,
-optionally display the current status with ``git as``, *then* call
-``git as -a`` to merge all changes into "master"::
+To update your repository in the future you just need to fetch all
+remotes and *then* call ``git as -a`` to merge all changes into
+"master". It's usually convenient to display the current status with
+``git as`` just prior to assembling::
 
   git fetch --all
+  git as
   git as -a
 
-There's no need to call ``git pull`` since ``git-assembler`` can do the
-same while also showing a more comprehensive repository status *before*
-performing the merges.
+It's useless to call ``git pull`` in this scenario, since
+``git-assembler`` can do the same while also showing a more
+comprehensive repository status *before* performing the required merges.
 
-This is entirely optional: you can skip ``merge master origin/master``
-in the assembly file and use ``git pull`` as usual, although in this
-case you still have to fetch the additional remotes manually in order to
-see/use all available updates with ``git as``.
+This is also entirely optional: you can skip ``merge master
+origin/master`` in the assembly file and use ``git pull`` as usual,
+although in this case you still have to fetch the additional remotes
+manually in order to see/use all available updates with ``git as``
+(essentially doing the same, but with more commands).
 
 
 Rebasing local branches
