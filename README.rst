@@ -46,9 +46,9 @@ assembly status graph as defined from the ``.git/assembly`` file.
 Automating merges
 -----------------
 
-Scenario: You have a "fixes" branch created off a release branch which
-is for release-critical fixes. You want to merge "fixes" back to
-"master" every time "fixes" is updated.
+Scenario: You have a "fixes" branch created off a release which is for
+release-critical fixes. You want to merge "fixes" back to "master" every
+time "fixes" is updated.
 
 Create a test repository::
 
@@ -75,13 +75,11 @@ do to update the repository::
   $ git as -n
   git-assembler: merging fixes into master
 
-To show the current status in a graph, run ``git as`` with no flags:
+To show the current status in a graph, run ``git as`` with no flags::
 
-.. raw:: html
-
-  <as>$ git as
-  <b>master</b>
-    &gt;<g>fixes</g></as>
+  $ git as
+  master
+    >fixes
 
 "master" is shown followed with an indented list of branches to be
 merged. In this case only "fixes" is listed. "master" is also shown in
@@ -126,37 +124,37 @@ reference them for any merge operation::
   merge master user1/feature
   merge master user2/bugfixes
 
-Display the current status:
+Display the current status::
 
-.. raw:: html
-
-  <as>$ git as
-  &gt;<b>master</b>
+  $ git as
+  >master
     origin/master
-    <g>user1/feature</g>
-    <g>user2/bugfixes</g></as>
+    user1/feature
+    user2/bugfixes
 
-"master" is the current branch and is out-of-date. "origin/master" is in
-sync (we just cloned from it), but "user1/feature" and "user2/bugfixes"
-have more recent commits that need to be merged back into "master".
+By reading the graph, we see "master" is the current branch and is
+out-of-date (shown in bold). "master" has three branches which are
+merged into it. "origin/master" is in sync (we just cloned from it), but
+"user1/feature" and "user2/bugfixes" have more recent commits that need
+to be merged back into "master" (both are shown in green).
 
-Perform the merges as needed using ``git as -a``.
+To perform the merges as needed use ``git as -a``.
 
 To update your repository in the future you need to fetch all remotes,
-optionally display the current status with ``git as``, *then*
-call ``git as -a`` to merge all changes into "master"::
+optionally display the current status with ``git as``, *then* call
+``git as -a`` to merge all changes into "master"::
 
   git fetch --all
   git as -a
 
-There's no need to call ``git pull``, since ``git-assembler`` can do the
-same while also showing a more comprehensive repository status before
+There's no need to call ``git pull`` since ``git-assembler`` can do the
+same while also showing a more comprehensive repository status *before*
 performing the merges.
 
 This is entirely optional: you can skip ``merge master origin/master``
-in the assembly file and use ``git pull`` as usual, although you still
-have to fetch the additional remotes manually in order to see/use all
-available updates.
+in the assembly file and use ``git pull`` as usual, although in this
+case you still have to fetch the additional remotes manually in order to
+see/use all available updates with ``git as``.
 
 
 Rebasing local branches
@@ -304,16 +302,3 @@ Authors and Copyright
 ``git-assembler``'s GIT repository is publicly accessible at:
 
 https://gitlab.com/wavexx/git-assembler
-
-
-.. raw:: html
-
-  <style>
-    as {
-      display: block;
-      white-space: pre;
-      font-family: monospace;
-      margin-left: 1.5em;
-    }
-    as g { color: green; }
-  </style>
