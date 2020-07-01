@@ -50,6 +50,8 @@ def parse_assembly(path):
         return None
 
     nodes = {}
+    settings = {'target': []}
+
     for n, line in enumerate(fd, 1):
         # strip comments
         line = line[0:line.find('#')].strip()
@@ -58,43 +60,55 @@ def parse_assembly(path):
 
         # basic tokenization
         tokens = line.split()
-        if len(tokens) < 3:
-            parse_error(path, n, 'invalid assembly line')
-            return None
-        cmd, branch, args = tokens[0], tokens[1], tokens[2:]
-        if cmd not in {'base', 'merge', 'rebase', 'stage'}:
+        cmd = tokens[0]
+        if cmd == 'target':
+            if len(tokens) < 2:
+                parse_error(path, n, 'invalid assembly line')
+                return None
+            if len(settings['target']):
+                parse_error(path, n, 'default target/s redefined')
+                return None
+            settings['target'] = tokens[1:]
+
+        elif cmd in {'base', 'rebase', 'stage', 'merge'}:
+            if len(tokens) < 3:
+                parse_error(path, n, 'invalid assembly line')
+                return None
+            branch, args = tokens[1], tokens[2:]
+
+            node = nodes.get(branch)
+            if node is None:
+                node = empty_node(branch)
+                nodes[branch] = node
+
+            if cmd in {'base', 'rebase', 'stage'}:
+                # define the branch base
+                if node['base']:
+                    parse_error(path, n, 'branch base/type cannot be redefined')
+                    return None
+                if len(args) != 1:
+                    parse_error(path, n, 'invalid base for branch {}'.format(branch))
+                    return None
+                node['base'] = args[0]
+                if cmd == 'stage':
+                    node['type'] = BranchType.STAGE
+                elif cmd == 'rebase':
+                    node['type'] = BranchType.REBASE
+                else:
+                    node['type'] = BranchType.BASE
+            elif cmd == 'merge':
+                # add dependencies
+                for arg in args:
+                    if arg in node['merge']:
+                        parse_error(path, n, 'duplicate merge of {} into {}'.format(arg, branch))
+                        return None
+                node['merge'].extend(args)
+
+        else:
             parse_error(path, n, 'unknown command: {}'.format(cmd))
             return None
 
-        node = nodes.get(branch)
-        if node is None:
-            node = empty_node(branch)
-            nodes[branch] = node
-
-        if cmd in {'base', 'rebase', 'stage'}:
-            # define the branch base
-            if node['base']:
-                parse_error(path, n, 'branch base/type cannot be redefined')
-                return None
-            if len(args) != 1:
-                parse_error(path, n, 'invalid base for branch {}'.format(branch))
-                return None
-            node['base'] = args[0]
-            if cmd == 'stage':
-                node['type'] = BranchType.STAGE
-            elif cmd == 'rebase':
-                node['type'] = BranchType.REBASE
-            else:
-                node['type'] = BranchType.BASE
-        elif cmd == 'merge':
-            # add dependencies
-            for arg in args:
-                if arg in node['merge']:
-                    parse_error(path, n, 'duplicate merge of {} into {}'.format(arg, branch))
-                    return None
-            node['merge'].extend(args)
-
-    return nodes
+    return nodes, settings
 
 
 class BranchType(Enum):
@@ -558,8 +572,11 @@ def main(argv):
     ap.add_argument('-v', '--verbose', default=0, action='count',
                     help='increase verbosity')
     ap.add_argument('--version', action='version', version=APP_VER)
-    ap.add_argument('target', nargs='*',
-                    help='branch to update/display')
+    g = ap.add_mutually_exclusive_group()
+    g.add_argument('target', nargs='*', default=[],
+                   help='branch to update/display')
+    g.add_argument('--all', action='store_true',
+                   help='override assembly: act on all branches')
     args = ap.parse_args(argv[1:])
 
     # logging
@@ -583,10 +600,20 @@ def main(argv):
         debug('reading instructions from {}'.format(path))
 
     # build the list of nodes and resulting graph
-    nodes = parse_assembly(path)
-    if nodes is None:
+    res = parse_assembly(path)
+    if res is None:
         return ExitStatus.CONFIG
-    targets = set(args.target) if len(args.target) else None
+    nodes, settings = res
+
+    # construct the list of targets
+    if len(args.target):
+        targets = set(args.target)
+    else:
+        targets = set(settings['target'])
+    if args.all or len(targets) == 0:
+        targets = None
+
+    # construct the resulting graph
     graph = assembly_graph(nodes, targets)
     if graph is None:
         return ExitStatus.CONFIG
