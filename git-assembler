@@ -303,10 +303,10 @@ def branch_tip(name):
 def needs_rebase(dst, base):
     tip = branch_tip(base)
     if tip is None:
-        return None, None, None
+        return None
     fp = fork_point(dst, base)
     if fp is None:
-        return None, None, None
+        return None
     return tip != fp
 
 
