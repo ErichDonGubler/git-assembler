@@ -510,8 +510,10 @@ def update_node(node, state, dry_run):
             if dirty is not False:
                 log(logging.INFO, 'rebasing {} onto {}'.format(color_node(node), color_node(node['base'])))
                 if not dry_run:
-                    proc = sp.run(['git', 'rebase', '-q', '--rebase-merges',
-                                   '--fork-point', node['name']])
+                    proc = sp.run(['git', 'rebase', '-q',
+                                   '--rebase-merges', '--fork-point',
+                                   '--onto', node['base']['name'],
+                                   node['name']])
                     if proc.returncode != 0:
                         return False
 
