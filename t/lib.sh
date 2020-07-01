@@ -39,7 +39,7 @@ GAS="$ROOT/git-assembler"
 
 cd $(mktemp -d) || exit $?
 if [ "$DEBUG" = 0 ]; then
-  trap "cd \"$TDIR\" && rm -r \"$PWD\"" EXIT
+  trap "cd \"$TDIR\" && rm -fr \"$PWD\"" EXIT
 else
   trap "echo \"test working directory: $PWD\"" EXIT
 fi
