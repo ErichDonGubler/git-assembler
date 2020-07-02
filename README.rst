@@ -274,9 +274,10 @@ initialized unless ``--create`` is given on the command line::
   git-assembler: merging feature into test
   git-assembler: restoring initial branch master
 
-Because "base" branches are intended to be ephemeral, they can also be
-explicitly re-initialized to discard any branch history and start anew
-by using ``--recreate``::
+Any subsequent update would simply perform the merge operations as
+needed. But, because "base" branches are intended to be *ephemeral*,
+they can also be explicitly re-initialized to discard any branch history
+and start anew by using ``--recreate``::
 
   $ git as -av --recreate
   git-assembler: erasing existing branch test
