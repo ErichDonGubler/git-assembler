@@ -246,16 +246,15 @@ A simple approach is to just create a throw-away branch and use merge::
 
 ``.git/assembly``::
 
-  merge test master
-  merge test feature
+  merge test master feature
 
-``git-assembler`` can bootstrap the "test" branch for you with "base"::
+You can mark that "test" can be bootstrapped from "master" using
+the `base` command::
 
   base test master
-  merge test master
-  merge test feature
+  merge test master feature
 
-The first The graph shows::
+The graph shows::
 
   $ git as
   test .. master
@@ -263,23 +262,21 @@ The first The graph shows::
     feature
 
 The ".." notation indicates that "test" is initially based off "master".
-The first time ``git as`` is run, "test" is highlighted in red to
-indicate that the branch doesn't exist, but otherwise behaves like a
-normal branch: if you want to update from the starting branch you have
-to do so explicitly as shown.
+Also, the first time ``git as`` is run, "test" is highlighted in red to
+indicate that the branch doesn't exist. "base" branches are not
+initialized unless ``--create`` is given on the command line::
 
-"base" branches are not initialized unless ``--create`` is given on the
-command line::
-
+  $ git as -av
+  git-assembler: branch test needs creation from master
   $ git as -avc
   git-assembler: creating branch test from master
   git-assembler: merging master into test
   git-assembler: merging feature into test
   git-assembler: restoring initial branch master
 
-As an additional feature, because "base" branches are intended to be
-ephemeral, they can also be explicitly re-initialized to discard any
-branch history and start anew by using ``--recreate``::
+Because "base" branches are intended to be ephemeral, they can also be
+explicitly re-initialized to discard any branch history and start anew
+by using ``--recreate``::
 
   $ git as -av --recreate
   git-assembler: erasing existing branch test
@@ -287,6 +284,10 @@ branch history and start anew by using ``--recreate``::
   git-assembler: merging master into test
   git-assembler: merging feature into test
   git-assembler: restoring initial branch master
+
+Base branches behave otherwise like a normal branch: if you want to
+update from the starting branch you have to do so explicitly, as done
+above.
 
 
 PRs with unresponsive upstream
