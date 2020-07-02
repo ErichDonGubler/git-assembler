@@ -43,18 +43,16 @@ Without any argument, ``git as`` is a no-op and will show the current
 assembly status graph as defined from the ``.git/assembly`` file.
 
 
-Automating merges
------------------
+Automating simple merges
+------------------------
 
-Scenario: You have a "fixes" branch created off a release which is for
-release-critical fixes. You want to merge "fixes" back to "master" every
-time "fixes" is updated.
+Scenario: You have a "fixes" branch which is where production bugs get
+fixed. You want to merge all "fixes" back to "master" unconditionally.
 
 Create a test repository::
 
-  # new repo
+  # a repository with a master branch
   git init
-  # add a file/commit
   touch file
   git add file
   git commit
@@ -63,16 +61,14 @@ Create a test repository::
   echo "test" > file
   git commit -a
 
-To declare that "master" needs to be kept up-to-date by merging back
-"fixes" every time it is updated, create ``.git/assembly`` with the
-following content::
+Create ``.git/assembly`` with the following content::
 
   merge master fixes
 
 You can run ``git as --dry-run`` to display what ``git-assembler`` will
 do to update the repository::
 
-  $ git as -n
+  $ git as --dry-run
   git-assembler: merging fixes into master
 
 To show the current status in a graph, run ``git as`` with no flags::
@@ -82,10 +78,10 @@ To show the current status in a graph, run ``git as`` with no flags::
     >fixes
 
 "master" is shown followed with an indented list of branches to be
-merged. In this case only "fixes" is listed. "master" is also shown in
-bold, meaning that it's out of date. "fixes" is displayed in green to
-indicate that it contains updated content. The leading ">" indicates
-that it's also the current branch.
+merged (in this case only "fixes"). "master" is also shown in bold,
+meaning that it's out of date. "fixes" is displayed in green to indicate
+that it contains updated content. The leading ">" indicates that it's
+also the current branch.
 
 To actually perform the merge, use the ``--assemble`` flag explicitly
 as shown here in short form with verbose output::
@@ -100,9 +96,7 @@ Following remote branches
 
 Scenario: You're following a project "coolthing" with multiple forks.
 There are two PRs ("feature" from "user1" and "bugfixes" from "user2")
-that interest you and want to merge both into your own fork. Both
-"user1" and "user2" as well as upstream play nice, and do not rebase
-their branches.
+that interest you and want to always merge both into your own fork.
 
 Clone the original project::
 
@@ -132,44 +126,167 @@ Display the current status::
     user1/feature
     user2/bugfixes
 
-By reading the graph, we see "master" is the current branch and is
-out-of-date (shown in bold). "master" has three branches which are
-merged into it. "origin/master" is in sync (we just cloned from it), but
-"user1/feature" and "user2/bugfixes" (shown in green) have more recent
-commits that need to be merged back into "master".
+In this graph we see "master" is the current branch and is out-of-date
+(shown in bold). "master" has three branches which are merged into it.
+"origin/master" is in sync (we just cloned from it), but "user1/feature"
+and "user2/bugfixes" (shown in green) have more recent commits that need
+to be merged back into "master".
 
-To perform the merges as needed use ``git as -a``.
+Use ``git as -n`` to see that broken down individually::
+
+  $ git as -n
+  git-assembler: merging user1/feature into master
+  git-assembler: merging user2/bugfixes into master
+
+To perform the merges use ``git as -a``.
 
 To update your repository in the future you just need to fetch all
-remotes and *then* call ``git as -a`` to merge all changes into
-"master". It's usually convenient to display the current status with
-``git as`` just prior to assembling::
+remotes and then call ``git as -a``. It's usually convenient to display
+the current status with ``git as`` just prior to assembling::
 
+  # update from all sources
   git fetch --all
+  # inspect the status
   git as
+  # perform updates
   git as -a
 
 It's useless to call ``git pull`` in this scenario since
 ``git-assembler`` will do the same while also showing a more
 comprehensive repository status *before* performing the required merges.
-
-This is also entirely optional: you can skip
-``merge master origin/master`` in the assembly file and use ``git pull``
-as usual, although in this case you still have to fetch the additional
-remotes manually in order to see/use all available updates with
-``git as`` (essentially doing the same, but with more commands).
+It isn't forbidden though, and combining ``git pull`` with ``git as``
+works just as well (it just requires more commands).
 
 
 Rebasing local branches
 -----------------------
 
-TODO
+Scenario: You're working on two independent feature branches ("feature1"
+and "feature2") and want to keep both always rebased on "master" during
+development.
+
+Create the following ``.git/assembly``::
+
+  rebase feature1 master
+  rebase feature2 master
+
+The respective graph::
+
+  $ git as
+  feature1 <- master
+  feature2 <- master
+
+The left arrow indicates that "feature1" is based on top of "master".
+
+Whenever master is updated (via ``git pull``, for example), "master"
+will turn green to indicate new content, while both "feature1" and
+"feature2" become bold to indicate that they will be updated.
+
+Running ``git as`` will rebase both in one shot, irregardless of the
+current branch::
+
+  $ git as -v
+  git-assembler: rebasing feature1 onto master
+  git-assembler: rebasing feature2 onto master
 
 
 Testing two branches together
 -----------------------------
 
-TODO
+Scenario: You're working on branch "feature", but require "bugfix" for
+testing some specific scenarios. You want to keep them logically
+separated, but still perform tests easily.
+
+We can define a staging branch "test" with the following
+``.git/assembly``::
+
+  stage test feature
+  merge test bugfix
+
+A `stage` branch is recreated from scratch whenever it's base changes or
+dependencies change.
+
+Resulting graph::
+
+  $ git as
+  test <= feature
+    bugfix
+
+The left double arrow indicates that "test" is staged on top of
+"feature". As seen before, it's followed by a list of indented branches
+to merge: "bugfix".
+
+Whenever either "bugfix" or "feature" is updated, "test" is deleted and
+recreated first by branching off "feature" and then merging "bugfix"::
+
+  $ git as -av
+  git-assembler: erasing existing branch test
+  git-assembler: creating branch test from feature
+  git-assembler: merging bugfix into test
+
+Staging branches can be helpful also to ensure that branches merge
+cleanly.
+
+
+Advanced topics
+===============
+
+Testing branches: continuous integration
+----------------------------------------
+
+Scenario: You have a feature branch "feature" and you want to keep a
+"test" ephemeral branch where changes from both mainline and the feature
+branch are continuously merged. Using `stage` would work, but cause the
+work tree to change and rebuild too frequently. You need something more
+efficient.
+
+A simple approach is to just create a throw-away branch and use merge::
+
+  git checkout -b test master
+
+``.git/assembly``::
+
+  merge test master
+  merge test feature
+
+``git-assembler`` can bootstrap the "test" branch for you with "base"::
+
+  base test master
+  merge test master
+  merge test feature
+
+The first The graph shows::
+
+  $ git as
+  test .. master
+    master
+    feature
+
+The ".." notation indicates that "test" is initially based off "master".
+The first time ``git as`` is run, "test" is highlighted in red to
+indicate that the branch doesn't exist, but otherwise behaves like a
+normal branch: if you want to update from the starting branch you have
+to do so explicitly as shown.
+
+"base" branches are not initialized unless ``--create`` is given on the
+command line::
+
+  $ git as -avc
+  git-assembler: creating branch test from master
+  git-assembler: merging master into test
+  git-assembler: merging feature into test
+  git-assembler: restoring initial branch master
+
+As an additional feature, because "base" branches are intended to be
+ephemeral, they can also be explicitly re-initialized to discard any
+branch history and start anew by using ``--recreate``::
+
+  $ git as -av --recreate
+  git-assembler: erasing existing branch test
+  git-assembler: creating branch test from master
+  git-assembler: merging master into test
+  git-assembler: merging feature into test
+  git-assembler: restoring initial branch master
 
 
 PRs with unresponsive upstream
@@ -178,8 +295,8 @@ PRs with unresponsive upstream
 TODO
 
 
-Assembly graph
-==============
+Assembly graph reference
+========================
 
 TODO
 
@@ -208,7 +325,7 @@ trailing whitespace is also ignored, allowing both commands and comments
 to be indented. Each commands starts on it's own line.
 
 Commands that define a target branch type (``base``, ``stage``,
-``rebase``) cannot be specified more than once.
+``rebase``) cannot be specified more than once per branch.
 
 
 Commands
