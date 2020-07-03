@@ -3,11 +3,11 @@ git-assembler: update git branches using high-level instructions
 ================================================================
 
 ``git-assembler`` can perform automatic merge and rebase operations
-following a simple declarative script.
+following a simple declarative script. Like "make", for branches.
 
 It can be used to follow remote branches (such as pull requests)
 conveniently, test multiple patches together, work on interdependent
-feature branches easily while waiting for upstream and so on...
+feature branches more easily and so on...
 
 .. contents::
 
@@ -15,7 +15,32 @@ feature branches easily while waiting for upstream and so on...
 Motivation
 ==========
 
-TODO
+When working with git it's often convenient/necessary to split
+development into separate branches, where each branch contains a
+logically independent set of changes. As time progresses though it's not
+uncommon to work on several feature and bugfix branches at the same
+time, often long-lived, and with dependent or downright conflicting
+changes.
+
+Managing such changes, keeping them separate and evolving them can
+become tedious and time consuming.
+
+As an example, imagine working on a new feature on its own dedicated
+branch until a critical API is found to be missing, or broken. Policy
+dictates that such change needs a separate fix, so you split-off
+development into a dedicate branch and submit the change for testing.
+Meanwhile you go back to the feature branch, merge the fix, and
+continue. But the fix turns out to be incomplete a few days later, so
+you go back, commit, switch back and merge. At least once or twice more.
+
+If that sounds familiar, and you'd like some automation, then a tool
+such as topgit_ or ``git-assembler`` might fit the bill. The major
+difference between the two is that ``topgit`` enforces a minimal
+workflow to preserve development history, while ``git-assembler`` just
+gives you the tools which *could* be used to implement such workflow,
+but enforces absolutely nothing.
+
+.. _topgit: https://github.com/mackyle/topgit
 
 
 Quickstart
@@ -292,10 +317,31 @@ update from the starting branch you have to do so explicitly, as done
 above.
 
 
-PRs with unresponsive upstream
-------------------------------
+Feature and bugfix: a rebase approach
+-------------------------------------
 
-TODO
+Scenario: You're working on branch "feature", but require "bugfix" to
+continue development, as well as recent changes from "master" ("bugfix"
+is too old, and is still in development). You want to keep "feature"'s
+history clean, since it will likely be pushed after "bugfix" is merged.
+
+We can use an intermediate branch with both master and "bugfix" applied.
+Then rebase our "feature" branch on top of it::
+
+  base temp master
+  merge temp master
+  merge temp bugfix
+  rebase feature temp
+
+This is efficient, but what if "bugfix" gets rebased? In these cases a
+staging branch might be more verbose, but will keep on working::
+
+  stage temp master
+  merge temp bugfix
+  rebase feature temp
+
+Once bugfix is applied, we can just discard our temporary branch and
+rebase on "master".
 
 
 Assembly graph reference
@@ -326,8 +372,6 @@ Bases will be split off into a separate root when they also contain
 dependencies that cannot be represented compactly. The branch is adorned
 with [brackets] when this happens to indicate an indirect node::
 
-  [base]
-    dependencies
   branch <- [base]
 
 Branches are highlighted with the following:
