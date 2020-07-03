@@ -25,8 +25,19 @@ def repo_root():
     return line.decode(sys.getfilesystemencoding()).rstrip()
 
 
-def assembly_path(root):
-    path = os.path.join(root, '.git', 'assembly')
+def repo_common_dir():
+    try:
+        line = sp.check_output(['git', 'rev-parse', '--git-common-dir'])
+    except sp.CalledProcessError as e:
+        return None
+    return line.decode(sys.getfilesystemencoding()).rstrip()
+
+
+def assembly_path(root, common_dir):
+    if common_dir is None:
+        path = os.path.join(root, '.git', 'assembly')
+    else:
+        path = os.path.join(common_dir, 'assembly')
     if os.path.exists(path):
         return path
     path = os.path.join(root, '.gitassembly')
@@ -588,7 +599,7 @@ def main(argv):
     logging.basicConfig(level=levels[min(len(levels)-1, args.verbose)],
                         format='{}: %(message)s'.format(APP_SIG))
 
-    # assembly path
+    # repository paths
     root = repo_root()
     if root is None:
         return ExitStatus.CONFIG
@@ -596,7 +607,7 @@ def main(argv):
     if args.config:
         path = args.config
     else:
-        path = assembly_path(root)
+        path = assembly_path(root, repo_common_dir())
         if path is None:
             error('no assembly instructions')
             return ExitStatus.CONFIG

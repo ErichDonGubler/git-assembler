@@ -22,3 +22,9 @@ verb "ensure .git/assembly takes precedence"
 touch .git/assembly
 capture not gas
 assert_out_regex "nothing to do"
+
+verb "check that we can read from a subdirectory"
+mkdir test
+cd test
+capture not gas
+assert_out_regex "nothing to do"
