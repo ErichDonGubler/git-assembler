@@ -7,7 +7,7 @@ following a simple declarative script. Like "make", for branches.
 
 It can be used to follow remote branches (such as pull requests)
 conveniently, test multiple patches together, work on interdependent
-feature branches more easily and so on...
+feature branches more easily, and so on...
 
 .. contents::
 
@@ -60,7 +60,6 @@ Copy ``git-assembler`` into $PATH::
 Configure git::
 
   git config --global alias.as assembler
-  git config --global rerere.enable true
 
 ``git-assembler`` can now be invoked as::
 
@@ -110,10 +109,10 @@ meaning that it's out of date. "fixes" is displayed in green to indicate
 that it contains updated content. The leading ">" indicates that it's
 also the current branch.
 
-To actually perform the merge, use the ``--assemble`` flag explicitly
-as shown here in short form with verbose output::
+To actually perform the merge use the ``--assemble``/``-a`` flag
+explicitly::
 
-  $ git as -av
+  $ git as --assemble --verbose
   git-assembler: merging fixes into master
   git-assembler: restoring initial branch fixes
 
@@ -157,9 +156,9 @@ In this graph we see "master" is the current branch and is out-of-date
 (shown in bold). "master" has three branches which are merged into it.
 "origin/master" is in sync (we just cloned from it), but "user1/feature"
 and "user2/bugfixes" (shown in green) have more recent commits that need
-to be merged back into "master".
+to be merged.
 
-Use ``git as -n`` to see that broken down individually::
+Use ``git as --dry-run`` (or ``-n`` in short) to see that broken down::
 
   $ git as -n
   git-assembler: merging user1/feature into master
@@ -182,7 +181,7 @@ It's useless to call ``git pull`` in this scenario since
 ``git-assembler`` will do the same while also showing a more
 comprehensive repository status *before* performing the required merges.
 It isn't forbidden though, and combining ``git pull`` with ``git as``
-works just as well (it just requires more commands).
+works just as well (it just takes more commands).
 
 
 Rebasing local branches
@@ -221,8 +220,8 @@ Testing two branches together
 -----------------------------
 
 Scenario: You're working on branch "feature", but require "bugfix" for
-testing some specific scenarios. You want to keep them logically
-separated, but still perform tests easily.
+testing. You want to keep them logically separated, but still perform
+tests easily.
 
 We can define a staging branch "test" with the following
 ``.git/assembly``::
@@ -267,12 +266,12 @@ setup`_ and `Git configuration`_ for extra details).
 The suggested shorthand ``git as`` needs to be run within a git
 repository. The primary location of the configuration file is
 ``.git/assembly``. Such file contains instructions on how to update any
-defined branches, such as performing merge or rebase operations. A
-complete list of commands is available in `Assembly file reference`_.
+defined branches by performing merge or rebase operations. A complete
+list of commands is available in `Assembly file reference`_.
 
 By default, without any arguments, ``git-assembler`` reads the assembly
-file and displays a graph representation of the defined branches,
-without performing any action::
+file and displays a graph representation of the defined branches without
+performing any action::
 
   $ cat .git/assembly
   merge master test
@@ -283,7 +282,7 @@ without performing any action::
 The graph layout is documented in `Assembly graph reference`_.
 
 The ``--dry-run``/``-n`` flag displays instead a flattened list of
-operations to be performed on the current repository::
+operations to be performed, in order, on the current repository::
 
   $ git as --dry-run
   git-assembler: merging test into master
@@ -320,7 +319,7 @@ list of explicit targets can be given on the command line::
   $ git as -av branch2
   git-assembler: merging c into branch2
 
-When working on large projects, the list of default targets can be
+When working on large projects the list of default targets can be
 overridden in the assembly file. Non-existent branches are ignored
 unless they are depended-on by one of the requested targets. Branches
 which exist, but are not defined, are also ignored.
@@ -333,7 +332,7 @@ There's no magic introduced by ``git-assembler`` involving conflicts.
 
 When conflicts arise in a merge operation ``git-assembler`` will drop
 you into the branch which is being merged onto. Assuming a simple
-merge::
+merge conflict::
 
   $ cat .git/assembly
   merge master branch1
@@ -368,7 +367,7 @@ Of course, if the merge is aborted but the `merge` rule is not removed,
 ``git as`` will simply try again on the next invocation.
 
 Additional information is displayed when two or more branches are
-involved::
+involved in the current run::
 
   $ cat .git/assembly
   merge master branch1
@@ -391,9 +390,9 @@ involved::
   git-assembler: error while merging branch2 into branch1
   git-assembler: stopping at branch branch1, fix/commit then re-run git-assembler
 
-``master`` will be adorned in the graph to indicate that it was the
+"master" will be adorned in the graph to indicate that it was the
 initial branch when ``git as`` was started (note the ``*`` after the
-name)::
+name), while the current branch you're now on is "branch1"::
 
   $ git as
   master*
@@ -419,15 +418,19 @@ The situation gets more complex when `stage` (and, to a lesser extent,
 Since staging branches will be deleted and re-created at every update,
 the same merge conflicts will keep repeating unless the conflict is
 handled within the branch being merged itself, which is not always
-possible or desired.
+desired.
 
 In these situations git-rerere_ is required (see `Git configuration`_).
 
 The basic gist of ``rerere`` is that, once enabled, will record how the
 conflict was resolved and apply the same solution whenever it happens
 again. This allows the same merge operation to repeat successfully.
-``git as`` will additionally auto-commit a successful ``rerere``
-solution so that the operation can continue without manual intervention.
+
+``git as`` applies merges in a deterministic order (the declaration
+order) in order to let you control and maximize the chances of a
+successful and reproducible resolution. ``git as`` will additionally
+auto-commit a successful ``rerere`` solution so that the operation can
+continue without manual intervention in most cases.
 
 ``git rerere`` might lead to surprising (and sometimes broken) results
 during conflict resolution, which is the main reason it's not enabled by
@@ -443,12 +446,16 @@ The ``.git/assembly`` file is not set in stone. Change and adapt your
 rules to whatever makes you work better. I adapt my rules according to
 what branches I'm working on and remove them when I'm done.
 
-Also, just because you can rebase everything it doesn't mean you should.
-Pushed-state aside, you can still work with plain merges and rebase just
-once for cleanup. Or mix the two methods by intervening manually.
+Also, just because you can rebase everything, it doesn't mean you
+should. Pushed-state aside, you can still work with plain merges and
+rebase just once for cleanup. Or mix the two methods by intervening
+manually.
 
 In contrast to other similar tools, ``git-assembler`` is stateless and
 doesn't care what you do or did to get to the current repository state.
+
+Not all branch layouts that can be defined with ``git-assembler`` make
+sense (or work at all).
 
 
 Advanced topics
@@ -521,7 +528,7 @@ Feature and bugfix: a rebase approach
 Scenario: You're working on branch "feature", but require "bugfix" to
 continue development, as well as recent changes from "master" ("bugfix"
 is too old, and is still in development). You want to keep "feature"'s
-history clean, since it will likely be pushed after "bugfix" is merged.
+history clean during development, before it's being pushed.
 
 We can use an intermediate branch with both master and "bugfix" applied.
 Then rebase our "feature" branch on top of it::
@@ -538,9 +545,9 @@ The resulting graph::
     master
     bugfix
 
-This is efficient, but what if "bugfix" gets rebased? In these cases a
-staging branch can get more verbose (requiring ``rerere`` to be active),
-but will keep on working::
+This is efficient, but what if "bugfix" inadvertently gets rebased? In
+these cases a staging branch can get more verbose (requiring ``rerere``
+to be active), but will keep on working::
 
   stage temp master
   merge temp bugfix
@@ -663,12 +670,13 @@ through the ``--config`` flag.
 Syntax
 ------
 
-Empty lines, and lines starting with "#" are ignored. Leading and
+Empty lines and lines starting with "#" are ignored. Leading and
 trailing whitespace is also ignored, allowing both commands and comments
-to be indented. Each commands starts on it's own line.
+to be indented. Each command starts on it's own line.
 
-Commands that define a target branch type (``base``, ``stage``,
-``rebase``) cannot be specified more than once per branch.
+Commands that define a branch type (``base``, ``stage``, ``rebase``)
+cannot be specified more than once per target. Ordering is only relevant
+for the ``merge`` command.
 
 
 Commands
@@ -704,7 +712,7 @@ stage
 :Description:
    Define ``branch-name`` to be a "staging" branch which is deleted and
    recreated by forking off ``base-name`` every time any of its
-   dependencies (base or merged branches) is updated.
+   dependencies (base or merged branches) are updated.
 
 rebase
 ~~~~~~
@@ -754,8 +762,8 @@ in each repository where ``git-assembler`` is being used::
 Good familiarity with git-rerere_ is recommended.
 
 Ensure the git ``reflog`` (``core.logAllRefUpdates``) has not been
-disabled. It is essential for the correct operation of complex rebase
-operations.
+disabled. It is essential for the correct operation of non-trivial
+rebase operations.
 
 .. _git-rerere: https://git-scm.com/docs/git-rerere
 
