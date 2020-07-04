@@ -28,7 +28,7 @@ become tedious and time consuming.
 As an example, imagine working on a new feature on its own dedicated
 branch until a critical API is found to be missing, or broken. Policy
 dictates that such change needs a separate fix, so you split-off
-development into a dedicate branch and submit the change for testing.
+development into a dedicated branch and submit the change for testing.
 Meanwhile you go back to the feature branch, merge the fix, and
 continue. But the fix turns out to be incomplete a few days later, so
 you go back, commit, switch back and merge. At least once or twice more.
