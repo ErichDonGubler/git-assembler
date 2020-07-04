@@ -49,6 +49,8 @@ Quickstart
 Basic setup
 -----------
 
+You'll need Python 3 and a recent version of Git.
+
 Copy ``git-assembler`` into $PATH::
 
   git clone https://gitlab.com/wavexx/git-assembler
@@ -253,6 +255,202 @@ Staging branches can be helpful also to ensure that branches merge
 cleanly.
 
 
+Invocation and usage
+====================
+
+Command line
+------------
+
+``git-assembler`` is best used with a short git alias (see `Basic
+setup`_ and `Git configuration`_ for extra details).
+
+The suggested shorthand ``git as`` needs to be run within a git
+repository. The primary location of the configuration file is
+``.git/assembly``. Such file contains instructions on how to update any
+defined branches, such as performing merge or rebase operations. A
+complete list of commands is available in `Assembly file reference`_.
+
+By default, without any arguments, ``git-assembler`` reads the assembly
+file and displays a graph representation of the defined branches,
+without performing any action::
+
+  $ cat .git/assembly
+  merge master test
+  $ git as
+  master
+    test
+
+The graph layout is documented in `Assembly graph reference`_.
+
+The ``--dry-run``/``-n`` flag displays instead a flattened list of
+operations to be performed on the current repository::
+
+  $ git as --dry-run
+  git-assembler: merging test into master
+
+To actually perform the operations the ``--assemble``/``-a`` flag is
+*always* required. This is true also for the ``--create`` or
+``--recreate`` flags. This can be seen in conjunction with
+``--dry-run``::
+
+  $ cat .git/assembly
+  base new master
+  merge new bugfix
+  $ git as --dry-run
+  git-assembler: branch new needs creation from master
+  $ git as --dry-run --create
+  git-assembler: creating branch new from master
+  git-assembler: merging bugfix into new
+
+By default *all* defined branches are either displayed or updated. A
+list of explicit targets can be given on the command line::
+
+  $ cat .git/assembly
+  merge branch1 a b
+  merge branch2 c
+  $ git as
+  branch1
+    a
+    b
+  branch2
+    c
+  $ git as branch2
+  branch2
+    c
+  $ git as -av branch2
+  git-assembler: merging c into branch2
+
+When working on large projects, the list of default targets can be
+overridden in the assembly file. Non-existent branches are ignored
+unless they are depended-on by one of the requested targets. Branches
+which exist, but are not defined, are also ignored.
+
+
+Handling conflicts
+------------------
+
+There's no magic introduced by ``git-assembler`` involving conflicts.
+
+When conflicts arise in a merge operation ``git-assembler`` will drop
+you into the branch which is being merged onto. Assuming a simple
+merge::
+
+  $ cat .git/assembly
+  merge master branch1
+  $ git as -av
+  git-assembler: merging branch1 into master
+  Auto-merging test
+  CONFLICT (content): Merge conflict in test
+  Recorded preimage for 'test'
+  Automatic merge failed; fix conflicts and then commit the result.
+  U       test
+  error: Committing is not possible because you have unmerged files.
+  hint: Fix them up in the work tree, and then use 'git add/rm <file>'
+  hint: as appropriate to mark resolution and make a commit.
+  fatal: Exiting because of an unresolved conflict.
+  git-assembler: error while merging branch1 into master
+  git-assembler: stopping at branch master, fix/commit then re-run git-assembler
+
+Use ``git add/commit`` as usual to resolve the conflict, or
+``git merge --abort`` to cancel the merge. Aborting the merge can be
+useful, for example, to invoke a different merge strategy or to remove
+the offending rule and disregard the merge completely.
+
+As soon as the merge is resolved or aborted, state is instantly
+reflected into ``git as``::
+
+  # fix the merge
+  $ git commit
+  $ git as -av
+  git-assembler: already up to date
+
+Of course, if the merge is aborted but the `merge` rule is not removed,
+``git as`` will simply try again on the next invocation.
+
+Additional information is displayed when two or more branches are
+involved::
+
+  $ cat .git/assembly
+  merge master branch1
+  merge branch1 branch2
+  $ git as
+  >master
+    branch1
+      branch2
+  $ git as -av
+  git-assembler: merging branch2 into branch1
+  Auto-merging test
+  CONFLICT (content): Merge conflict in test
+  Recorded preimage for 'test'
+  Automatic merge failed; fix conflicts and then commit the result.
+  U       test
+  error: Committing is not possible because you have unmerged files.
+  hint: Fix them up in the work tree, and then use 'git add/rm <file>'
+  hint: as appropriate to mark resolution and make a commit.
+  fatal: Exiting because of an unresolved conflict.
+  git-assembler: error while merging branch2 into branch1
+  git-assembler: stopping at branch branch1, fix/commit then re-run git-assembler
+
+``master`` will be adorned in the graph to indicate that it was the
+initial branch when ``git as`` was started (note the ``*`` after the
+name)::
+
+  $ git as
+  master*
+    >branch1
+      branch2
+
+After fixing the merge, running ``git as -av`` a second time will
+continue and restore the initial branch::
+
+  # fix conflict
+  $ git commit
+  $ git as -av
+  git-assembler: merging branch1 into master
+  git-assembler: restoring initial branch master
+
+Conflicts arising during a rebase operation work exactly the same: just
+fix the conflict and either ``rebase --continue`` or ``rebase --abort``
+as you normally would.
+
+The situation gets more complex when `stage` (and, to a lesser extent,
+`base`) is involved somewhere in the graph.
+
+Since staging branches will be deleted and re-created at every update,
+the same merge conflicts will keep repeating unless the conflict is
+handled within the branch being merged itself, which is not always
+possible or desired.
+
+In these situations git-rerere_ is required (see `Git configuration`_).
+
+The basic gist of ``rerere`` is that, once enabled, will record how the
+conflict was resolved and apply the same solution whenever it happens
+again. This allows the same merge operation to repeat successfully.
+``git as`` will additionally auto-commit a successful ``rerere``
+solution so that the operation can continue without manual intervention.
+
+``git rerere`` might lead to surprising (and sometimes broken) results
+during conflict resolution, which is the main reason it's not enabled by
+default. Reading ``rerere``'s own documentation and experimenting on a
+toy repository is highly encouraged before starting to use staging
+branches.
+
+
+General usage advice
+--------------------
+
+The ``.git/assembly`` file is not set in stone. Change and adapt your
+rules to whatever makes you work better. I adapt my rules according to
+what branches I'm working on and remove them when I'm done.
+
+Also, just because you can rebase everything it doesn't mean you should.
+Pushed-state aside, you can still work with plain merges and rebase just
+once for cleanup. Or mix the two methods by intervening manually.
+
+In contrast to other similar tools, ``git-assembler`` is stateless and
+doesn't care what you do or did to get to the current repository state.
+
+
 Advanced topics
 ===============
 
@@ -394,10 +592,10 @@ Branches are highlighted with the following:
 :Bold: Branch needs to be updated
 :Green: Branch contains updated content
 
-Branches can be prefixed with:
+Branches can be adorned with:
 
 :``>branch``: Branch is the current branch
-:``*branch``: Branch was the initial branch when ``git-assembler`` was
+:``branch*``: Branch was the initial branch when ``git-assembler`` was
 	      called and interrupted before finishing
 
 
@@ -553,12 +751,13 @@ in each repository where ``git-assembler`` is being used::
   # or enable for all repositories
   git config --global rerere.enable true
 
-Good familiarity with `git-rerere(1)
-<https://git-scm.com/docs/git-rerere>`_ is recommended.
+Good familiarity with git-rerere_ is recommended.
 
 Ensure the git ``reflog`` (``core.logAllRefUpdates``) has not been
 disabled. It is essential for the correct operation of complex rebase
 operations.
+
+.. _git-rerere: https://git-scm.com/docs/git-rerere
 
 
 Authors and Copyright
