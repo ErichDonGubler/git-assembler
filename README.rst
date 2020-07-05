@@ -408,9 +408,10 @@ continue and restore the initial branch::
   git-assembler: merging branch1 into master
   git-assembler: restoring initial branch master
 
-Conflicts arising during a rebase operation work exactly the same: just
-fix the conflict and either ``rebase --continue`` or ``rebase --abort``
-as you normally would.
+Conflicts arising during a rebase operation drop you on the branch which
+is being rebased and work exactly the same: just fix the conflict and
+either ``rebase --continue`` or ``rebase --abort`` as you normally
+would.
 
 The situation gets more complex when `stage` (and, to a lesser extent,
 `base`) is involved somewhere in the graph.
