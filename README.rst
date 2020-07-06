@@ -546,9 +546,12 @@ The resulting graph::
     master
     bugfix
 
-This is efficient, but what if "bugfix" inadvertently gets rebased? In
-these cases a staging branch can get more verbose (requiring ``rerere``
-to be active), but will keep on working::
+This is efficient, but what if "bugfix" inadvertently gets rebased?
+Bootstrap the branch again, using ``git as --recreate``.
+
+If "bugfix" happens to rebase frequently then a staging branch can get
+more verbose (requiring ``rerere`` to be active), but will keep on
+working::
 
   stage temp master
   merge temp bugfix
