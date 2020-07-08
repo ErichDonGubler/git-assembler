@@ -92,7 +92,12 @@ quiet()
 
 not()
 {
-  "$@" && false || true
+  if "$@"
+  then
+    false
+  else
+    true
+  fi
 }
 
 capture()
