@@ -12,7 +12,7 @@ from enum import Enum, IntEnum
 import logging
 from logging import error, warning, info, debug
 
-APP_DSC = "update git branches using high-level assembly instructions"
+APP_DSC = "update git branches using high-level instructions"
 APP_SIG = "git-assembler"
 APP_VER = "1.0"
 
