@@ -101,6 +101,9 @@ def parse_assembly(path):
                     parse_error(path, n, 'invalid base for branch {}'.format(branch))
                     return None
                 node['base'] = args[0]
+                if node['base'] == node['name']:
+                    parse_error(path, n, 'refusing to {} {} onto itself'.format(cmd, node['base']))
+                    return None
                 if cmd == 'stage':
                     node['type'] = BranchType.STAGE
                 elif cmd == 'rebase':
@@ -110,7 +113,10 @@ def parse_assembly(path):
             elif cmd == 'merge':
                 # add dependencies
                 for arg in args:
-                    if arg in node['merge']:
+                    if arg == node['name']:
+                        parse_error(path, n, 'refusing merge of {} into itself'.format(arg, branch))
+                        return None
+                    elif arg in node['merge']:
                         parse_error(path, n, 'duplicate merge of {} into {}'.format(arg, branch))
                         return None
                 node['merge'].extend(args)
