@@ -171,7 +171,13 @@ def assembly_graph(nodes, targets=None):
             if branch_node is None:
                 branch_node = empty_node(branch_name)
                 nodes[branch_name] = branch_node
-            merge.append(branch_node)
+            if branch_node is node['base'] and node['type'] != BranchType.BASE:
+                # we allow base switching for experimentation, but
+                # notify the user about no-ops and discard the rule
+                warning('discarding useless merge of branch {} into {}'.format(
+                    color_node(branch_node), color_node(node)))
+            else:
+                merge.append(branch_node)
         node['merge'] = merge
         deps.extend(merge)
 
@@ -383,7 +389,13 @@ def update_state(ordered_nodes, graph, force):
 
         # merge dependencies
         for dep in node['merge']:
-            if node['state']['missing'] or dep['state']['missing']:
+            if node['base'] is dep:
+                if node['type'] != BranchType.BASE or node['state']['missing']:
+                    # merge is known in advance to be a no-op
+                    ret = False
+                else:
+                    ret = None
+            elif node['state']['missing'] or dep['state']['missing']:
                 ret = None
             else:
                 ret = needs_merge(node['name'], dep['name'])
@@ -538,7 +550,11 @@ def update_node(node, state, dry_run):
 
     # merge dependencies
     for dep in node['merge']:
-        if not exists or dep['state']['dirty']:
+        if not exists and node['base'] is dep:
+            # branch has been bootstrapped and dependency is the base
+            # itself, skip the merge (it's useless)
+            continue
+        elif not exists or dep['state']['dirty']:
             # branch is new or dependency has been updated earlier on,
             # there's no need to peform another check: we need to merge
             pass
