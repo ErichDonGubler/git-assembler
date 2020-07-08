@@ -547,7 +547,7 @@ The resulting graph::
     bugfix
 
 This is efficient, but what if "bugfix" inadvertently gets rebased?
-Bootstrap the branch again, using ``git as --recreate``.
+Bootstrap the "temp" branch again, using ``git as -a --recreate``.
 
 If "bugfix" happens to rebase frequently then a staging branch can get
 more verbose (requiring ``rerere`` to be active), but will keep on
