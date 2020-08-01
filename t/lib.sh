@@ -48,6 +48,16 @@ set -e
 
 
 # helper functions
+echo()
+{
+  printf "%s\n" "$*"
+}
+
+echon()
+{
+  printf "%s" "$*"
+}
+
 msg()
 {
   echo "$NAME: $@"
@@ -115,7 +125,7 @@ gas()
 
 assert_out_regex()
 {
-  echo -n "$OUT" | grep -q "^git-assembler: $1\$"
+  echon "$OUT" | grep -q "^git-assembler: $1\$"
 }
 
 assert_cycle()

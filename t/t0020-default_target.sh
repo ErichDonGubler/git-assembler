@@ -14,8 +14,8 @@ merge master a
 merge master b
 EOF
 capture gas
-echo "$OUT" | grep -q '^  a$'
-echo "$OUT" | grep -q '^  b$'
+echon "$OUT" | grep -q '^  a$'
+echon "$OUT" | grep -q '^  b$'
 
 verb "request a single target"
 capture gas a
@@ -36,5 +36,5 @@ test "$OUT" = "b"
 
 verb "explicit target assembly override"
 capture gas --all
-echo "$OUT" | grep -q '^  a$'
-echo "$OUT" | grep -q '^  b$'
+echon "$OUT" | grep -q '^  a$'
+echon "$OUT" | grep -q '^  b$'
