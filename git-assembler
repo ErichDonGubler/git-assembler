@@ -542,8 +542,7 @@ def update_node(node, state, dry_run):
                 if not dry_run:
                     proc = sp.run(['git', 'rebase', '-q',
                                    '--rebase-merges', '--fork-point',
-                                   '--onto', node['base']['name'],
-                                   node['name']])
+                                   node['base']['name'], node['name']])
                     if proc.returncode != 0:
                         return False
 
