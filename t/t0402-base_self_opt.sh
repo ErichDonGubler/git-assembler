@@ -16,7 +16,6 @@ EOF
 
 verb "bootstrap checking for a repeated merge"
 capture gas -av --create
-echo "$OUT"
 assert_out_regex "creating branch test from master"
 not assert_out_regex "merging master into test"
 checkout test
