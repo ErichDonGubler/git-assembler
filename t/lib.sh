@@ -1,4 +1,9 @@
 # shared test functions
+if ! which realpath >/dev/null
+then
+  realpath() { python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$1"; }
+fi
+
 NAME="$(basename "$0" .sh)"
 TDIR="$(realpath $(dirname "$0"))"
 DATA="$TDIR/$name"
