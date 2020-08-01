@@ -726,7 +726,7 @@ def main(argv):
         branch_name = state['start_branch']
         if branch_name in nodes:
             branch_name = color_node(nodes[branch_name])
-        if not args.dry_run and not branch_exists(branch_name):
+        if not args.dry_run and not branch_exists(state['start_branch']):
             logging.log(logging.WARNING, 'cannot restore initial branch {}'.format(branch_name))
         else:
             level = logging.INFO if start_set else logging.WARNING
