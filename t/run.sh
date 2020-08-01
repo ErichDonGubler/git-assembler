@@ -1,4 +1,6 @@
 #!/bin/sh
+TDIR="$(dirname "$0")"
+
 VERBOSE=0
 DESCRIBE=0
 HELP=0
@@ -27,7 +29,7 @@ fi
 
 
 # test runner
-find . -mindepth 1 -maxdepth 1 -name "t*-*.sh" -type f -perm 755 | sort | while read t
+find "$TDIR" -mindepth 1 -maxdepth 1 -name "t*-*.sh" -type f -perm 755 | sort | while read t
 do
   printf "%-30s : " "$(basename "$t" .sh)"
   out="`"$t" "$@" 2>&1`"

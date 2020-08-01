@@ -1,6 +1,6 @@
 #!/bin/sh
 DESC="initial branch should be restored when continuing"
-. ./lib.sh
+. "$(dirname "$0")/lib.sh"
 
 verb "initialize a new repo with a conflict"
 git init -q

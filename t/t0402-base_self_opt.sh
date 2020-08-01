@@ -1,6 +1,6 @@
 #!/bin/sh
 DESC="test base with self merge optimization"
-. ./lib.sh
+. "$(dirname "$0")/lib.sh"
 
 verb "initialize a new repo"
 git init -q

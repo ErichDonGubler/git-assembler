@@ -1,6 +1,6 @@
 #!/bin/sh
 DESC="default target handling"
-. ./lib.sh
+. "$(dirname "$0")/lib.sh"
 
 verb "initialize a new repo"
 git init -q

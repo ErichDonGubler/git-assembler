@@ -1,6 +1,6 @@
 #!/bin/sh
 DESC="basic stage tests"
-. ./lib.sh
+. "$(dirname "$0")/lib.sh"
 
 verb "initialize a new repo"
 git init -q

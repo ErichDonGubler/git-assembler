@@ -1,6 +1,6 @@
 #!/bin/sh
 DESC="basic merge tests"
-. ./lib.sh
+. "$(dirname "$0")/lib.sh"
 
 verb "initialize a new repo with two branches"
 git init -q

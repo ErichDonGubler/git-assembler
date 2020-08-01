@@ -1,6 +1,6 @@
 #!/bin/sh
 DESC="test .git/assembly when using worktrees"
-. ./lib.sh
+. "$(dirname "$0")/lib.sh"
 
 verb "ensure the test area is pristine"
 test -x "$GAS"

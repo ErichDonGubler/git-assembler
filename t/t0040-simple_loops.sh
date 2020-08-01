@@ -1,6 +1,6 @@
 #!/bin/sh
 DESC="detect obvious dependency loops"
-. ./lib.sh
+. "$(dirname "$0")/lib.sh"
 
 # these would still be detected as a cycle, so ensure all checks are
 # detected earlier while parsing with a better error message
