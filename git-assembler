@@ -222,6 +222,8 @@ def assembly_graph(nodes, targets=None):
     return [nodes[name] for name in sorted(roots)]
 
 
+COLOR_MODE = None
+
 class Ansi:
     BOLD  = "\033[;1m"
     GREEN = "\033[0;32m"
@@ -230,7 +232,8 @@ class Ansi:
 
 def color_node(node):
     name = node['name']
-    if not sys.stdout.isatty():
+    if COLOR_MODE == False or \
+       (COLOR_MODE is None and not sys.stdout.isatty()):
         return name
     elif node['state']['missing']:
         return Ansi.RED + name + Ansi.RESET
@@ -607,6 +610,8 @@ def main(argv):
     ap.add_argument('-v', '--verbose', default=0, action='count',
                     help='increase verbosity')
     ap.add_argument('--version', action='version', version=APP_VER)
+    ap.add_argument('--color', choices=['auto', 'always', 'never'],
+                    default='auto', help='set terminal coloring mode')
     g = ap.add_mutually_exclusive_group()
     g.add_argument('target', nargs='*', default=[],
                    help='branch to update/display')
@@ -618,6 +623,13 @@ def main(argv):
     levels = (logging.WARNING, logging.INFO, logging.DEBUG)
     logging.basicConfig(level=levels[min(len(levels)-1, args.verbose)],
                         format='{}: %(message)s'.format(APP_SIG))
+
+    # color mode
+    global COLOR_MODE
+    if args.color == 'always':
+        COLOR_MODE = True
+    elif args.color == 'never':
+        COLOR_MODE = False
 
     # repository paths
     root = repo_root()
