@@ -1,5 +1,5 @@
 # shared test functions
-if ! which realpath >/dev/null
+if ! type realpath 2>/dev/null >&2
 then
   realpath() { python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$1"; }
 fi
