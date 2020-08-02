@@ -65,14 +65,14 @@ echon()
 
 msg()
 {
-  echo "$NAME: $@"
+  echo "$NAME: $*"
 }
 
 verb()
 {
   if [ "$VERBOSE" = 1 ]
   then
-    msg "$@"
+    msg "$*"
   fi
 }
 
@@ -80,13 +80,13 @@ out()
 {
   if [ "$VERBOSE" = 1 ]
   then
-    echo "$@"
+    echo "$*"
   fi
 }
 
 fail()
 {
-  msg "error: $@"
+  msg "error: $*"
   exit 1
 }
 
