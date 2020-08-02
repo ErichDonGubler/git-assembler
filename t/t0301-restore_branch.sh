@@ -21,11 +21,11 @@ cat <<EOF > .gitassembly
 merge master test
 EOF
 gas -a
-test `current_branch` = master
+test $(current_branch) = master
 
 verb "perform a rebase"
 cat <<EOF > .gitassembly
 rebase test master
 EOF
 gas -a
-test `current_branch` = master
+test $(current_branch) = master

@@ -1,5 +1,5 @@
 # shared test functions
-if ! which realpath >/dev/null
+if ! type realpath 2>/dev/null >&2
 then
   realpath() { python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$1"; }
 fi
@@ -65,14 +65,14 @@ echon()
 
 msg()
 {
-  echo "$NAME: $@"
+  echo "$NAME: $*"
 }
 
 verb()
 {
   if [ "$VERBOSE" = 1 ]
   then
-    msg "$@"
+    msg "$*"
   fi
 }
 
@@ -80,13 +80,13 @@ out()
 {
   if [ "$VERBOSE" = 1 ]
   then
-    echo "$@"
+    echo "$*"
   fi
 }
 
 fail()
 {
-  msg "error: $@"
+  msg "error: $*"
   exit 1
 }
 
