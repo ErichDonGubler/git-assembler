@@ -16,7 +16,7 @@ echo b > file
 git add file
 commit
 checkout -b temp master
-test `current_branch` = temp
+test $(current_branch) = temp
 
 verb "perform a conflicting merge"
 cat <<EOF > .gitassembly
@@ -24,7 +24,7 @@ merge master test
 EOF
 capture not gas -a
 assert_out_regex "error while merging test into master"
-test `current_branch` = master
+test $(current_branch) = master
 
 verb "delete the initial branch"
 quiet git branch -D temp
@@ -37,4 +37,4 @@ quiet commit
 verb "attempt to continue"
 capture gas -a
 assert_out_regex "cannot restore initial branch temp"
-test `current_branch` = master
+test $(current_branch) = master

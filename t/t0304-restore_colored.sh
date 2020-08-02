@@ -26,4 +26,4 @@ EOF
 verb "ensure initial temp branch can be restored despite the coloring"
 checkout temp
 capture gas -av --color=always
-test `current_branch` = temp
+test $(current_branch) = temp

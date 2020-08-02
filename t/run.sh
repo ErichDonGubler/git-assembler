@@ -32,7 +32,7 @@ fi
 find "$TDIR" -mindepth 1 -maxdepth 1 -name "t*-*.sh" -type f -perm 755 | sort | while read t
 do
   printf "%-30s : " "$(basename "$t" .sh)"
-  out="`"$t" "$@" 2>&1`"
+  out=$("$t" "$@" 2>&1)
   v="$?"
   if [ "$v" = 0 ]
   then
