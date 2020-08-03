@@ -306,8 +306,6 @@ def topo_sort(graph, seen=None):
 
 
 def mark_tree_dirty(node, graph):
-    if type(graph) is not list:
-        graph = [graph]
     dirty = False
     for root in graph:
         if root is node or mark_tree_dirty(node, root['deps']):
