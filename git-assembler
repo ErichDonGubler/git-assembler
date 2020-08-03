@@ -14,7 +14,7 @@ from logging import error, warning, info, debug
 
 APP_DSC = "update git branches using high-level instructions"
 APP_SIG = "git-assembler"
-APP_VER = "1.0"
+APP_VER = "1.1"
 
 
 def repo_root():
