@@ -292,15 +292,12 @@ def topo_sort(graph, seen=None):
     if seen is None:
         seen = set()
     nodes = []
-    if type(graph) is not list:
-        graph = [graph]
     for node in graph:
         name = node['name']
         if name in seen:
             continue
         seen.add(name)
-        for dep in node['deps']:
-            nodes.extend(topo_sort(dep, seen))
+        nodes.extend(topo_sort(node['deps'], seen))
         nodes.append(node)
     return nodes
 
