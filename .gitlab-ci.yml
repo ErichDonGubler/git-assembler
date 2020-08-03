@@ -4,4 +4,4 @@ stages:
 test:
   stage: test
   script:
-    - cd t && ./run.sh
+    - ./t/run.sh
