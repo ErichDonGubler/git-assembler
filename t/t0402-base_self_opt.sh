@@ -29,3 +29,7 @@ commit -a
 verb "ensure merge still works with following updates"
 capture gas -av
 assert_out_regex "merging master into test"
+
+verb "ensure repeated runs do nothing"
+capture gas -av
+assert_out_regex "already up to date"

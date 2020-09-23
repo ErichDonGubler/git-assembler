@@ -387,14 +387,11 @@ def update_state(ordered_nodes, graph, force):
 
         # merge dependencies
         for dep in node['merge']:
-            if node['base'] is dep:
-                if node['type'] != BranchType.BASE or node['state']['missing']:
-                    # merge is known in advance to be a no-op
-                    ret = False
-                else:
-                    ret = None
-            elif node['state']['missing'] or dep['state']['missing']:
+            if node['state']['missing'] or dep['state']['missing']:
                 ret = None
+            elif node['base'] is dep and node['type'] != BranchType.BASE:
+                # merge is known in advance to be a no-op
+                ret = False
             else:
                 ret = needs_merge(node['name'], dep['name'])
             if ret is not False:
