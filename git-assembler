@@ -709,8 +709,10 @@ def main(argv):
                 error('error while ' + state['last_msg'])
             if state['last_err'] is not None:
                 print(state['last_err'], file=sys.stderr)
-            warning('stopping at branch {}, fix/commit then re-run {}'.format(
-                color_node(nodes[state['last_branch']]), APP_SIG))
+            branch_name = state['last_branch']
+            if branch_name in nodes:
+                branch_name = color_node(nodes[branch_name])
+            warning('stopping at branch {}, fix/commit then re-run {}'.format(branch_name, APP_SIG))
             return ExitStatus.ERROR
 
     # restore initial branch
