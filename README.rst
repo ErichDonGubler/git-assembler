@@ -343,10 +343,6 @@ merge conflict::
   Recorded preimage for 'test'
   Automatic merge failed; fix conflicts and then commit the result.
   U       test
-  error: Committing is not possible because you have unmerged files.
-  hint: Fix them up in the work tree, and then use 'git add/rm <file>'
-  hint: as appropriate to mark resolution and make a commit.
-  fatal: Exiting because of an unresolved conflict.
   git-assembler: error while merging branch1 into master
   git-assembler: stopping at branch master, fix/commit then re-run git-assembler
 
@@ -383,10 +379,6 @@ involved in the current run::
   Recorded preimage for 'test'
   Automatic merge failed; fix conflicts and then commit the result.
   U       test
-  error: Committing is not possible because you have unmerged files.
-  hint: Fix them up in the work tree, and then use 'git add/rm <file>'
-  hint: as appropriate to mark resolution and make a commit.
-  fatal: Exiting because of an unresolved conflict.
   git-assembler: error while merging branch2 into branch1
   git-assembler: stopping at branch branch1, fix/commit then re-run git-assembler
 
