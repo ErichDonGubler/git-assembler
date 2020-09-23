@@ -469,8 +469,8 @@ def save_state(git_dir, state):
     json.dump(state, open(state_path, "w"))
 
 
-def switch_to_branch(name):
-    proc = sp.run(['git', 'checkout', '-q', '--no-guess', name],
+def switch_to_branch(name, *git_flags):
+    proc = sp.run(['git', 'checkout', '-q', '--no-guess', *git_flags, name],
                   stdout=sp.DEVNULL, stderr=sp.PIPE)
     stderr = proc.stderr.decode(sys.getdefaultencoding()).rstrip()
     return proc.returncode, stderr
@@ -492,7 +492,9 @@ def update_node(node, state, dry_run):
         if node['base']['name'] != state['last_branch']:
             log(logging.DEBUG, 'switching to branch {}'.format(color_node(node['base'])))
             if not dry_run:
-                ret, err = switch_to_branch(node['base']['name'])
+                # checkout in detached state since this is only done in
+                # preparation for the subsequent branch creation
+                ret, err = switch_to_branch(node['base']['name'], '--detach')
                 if ret != 0:
                     state['last_err'] = err
                     return False
