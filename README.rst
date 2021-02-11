@@ -730,6 +730,14 @@ merge
    The merge order follows the declaration order.
 
 
+Editor support
+--------------
+
+`git-assembler-mode <https://melpa.org/#/git-assembler-mode>`_ is an
+Emacs major-mode to edit assembly files. Available through Melpa.
+
+
+
 Git configuration
 =================
 
