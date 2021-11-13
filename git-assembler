@@ -564,7 +564,7 @@ def update_node(node, state, dry_run):
 
         log(logging.INFO, 'merging {} into {}'.format(color_node(dep), color_node(node)))
         if not dry_run:
-            proc = sp.run(['git', 'merge', '-q', '--rerere-autoupdate', '--no-edit', dep['name']])
+            proc = sp.run(['git', 'merge', '--ff', '-q', '--rerere-autoupdate', '--no-edit', dep['name']])
             if proc.returncode == 1:
                 # directly attempt to autocommit in case rerere was successful
                 proc = sp.run(['git', 'commit', '-q', '--no-edit'], stderr=sp.DEVNULL)
