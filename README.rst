@@ -261,7 +261,7 @@ Command line
 ------------
 
 ``git-assembler`` is best used with a short git alias (see `Basic
-setup`_ and `Git configuration`_ for extra details).
+setup`_ and `Recommendations`_ for extra details).
 
 The suggested shorthand ``git as`` needs to be run within a git
 repository. The primary location of the configuration file is
@@ -413,7 +413,7 @@ the same merge conflicts will keep repeating unless the conflict is
 handled within the branch being merged itself, which is not always
 desired.
 
-In these situations git-rerere_ is required (see `Git configuration`_).
+In these situations git-rerere_ is required (see `Recommendations`_).
 
 The basic gist of ``rerere`` is that, once enabled, will record how the
 conflict was resolved and apply the same solution whenever it happens
@@ -729,6 +729,9 @@ merge
    ``merge`` can be repeated to specify more branches on multiple lines.
    The merge order follows the declaration order.
 
+   Note that fast-forward is used when possible (i.e. ``--ff``). This behavior
+   can be modified with `assembler.mergeff`_.
+
 
 Editor support
 --------------
@@ -737,9 +740,31 @@ Editor support
 Emacs major-mode to edit assembly files. Available through Melpa.
 
 
+Configuration
+=============
 
-Git configuration
-=================
+It is possible to configure ``git-assembler``'s behavior via
+``git config`` or environment variables. Below is a reference of the supported
+configuration keys. Environment variables override values possibly set with
+``git config``.
+
+assembler.mergeff
+-----------------
+
+:Key: ``assembler.mergeff``
+:Env variable: ``GIT_ASSEMBLER_MERGEFF``
+:Possible Values:
+   ``true`` or ``false`` (or any boolean value accepted by
+   ``git config``)
+:Default: ``true``
+:Description:
+   If ``true`` (the default), instructs ``git-assembler`` to use the
+   flag ``--ff`` when doing merges. If ``false``, the flag ``--no-ff``
+   is used instead.
+
+
+Recommendations
+===============
 
 Once ``git-assembler`` is installed, it can be called as a regular git
 sub-command::
