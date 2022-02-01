@@ -759,9 +759,9 @@ rebase operations over and over, it is recommended to enable ``rerere``
 in each repository where ``git-assembler`` is being used::
 
   # enable in the current repository only
-  git config rerere.enable true
+  git config rerere.enabled true
   # or enable for all repositories
-  git config --global rerere.enable true
+  git config --global rerere.enabled true
 
 Good familiarity with git-rerere_ is recommended.
 
