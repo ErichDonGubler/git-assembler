@@ -5,6 +5,7 @@
 import subprocess as sp
 import argparse
 import os, sys
+import os.path
 import shutil
 import shlex
 import json
@@ -660,7 +661,7 @@ class ExitStatus(IntEnum):
     GITCONFIG = 3
 
 def main(argv):
-    ap = argparse.ArgumentParser(description=APP_DSC)
+    ap = argparse.ArgumentParser(prog=os.path.basename(sys.executable), description=APP_DSC)
     ap.add_argument('-f', '--config', metavar='PATH',
                     help='explicit path to assembly file')
     ap.add_argument('-c', '--create', action='store_true',
